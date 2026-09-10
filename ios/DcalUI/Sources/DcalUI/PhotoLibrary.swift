@@ -67,6 +67,26 @@ enum PhotoLibrary {
         }.value
     }
 
+    /// Everything taken inside a span, oldest first, for the gallery.
+    static func identifiers(in range: ClosedRange<Date>, limit: Int = 200) async -> [String] {
+        await Task.detached(priority: .userInitiated) {
+            let options = PHFetchOptions()
+            options.includeHiddenAssets = false
+            options.predicate = NSPredicate(
+                format: "creationDate >= %@ AND creationDate <= %@",
+                range.lowerBound as NSDate, range.upperBound as NSDate
+            )
+            options.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+            options.fetchLimit = limit
+
+            let assets = PHAsset.fetchAssets(with: .image, options: options)
+            var out: [String] = []
+            out.reserveCapacity(assets.count)
+            assets.enumerateObjects { asset, _, _ in out.append(asset.localIdentifier) }
+            return out
+        }.value
+    }
+
     /// City and country, when Apple knows one. Geocoding is rate limited, so
     /// this asks for a handful at a time and gives up quietly - a trip with no
     /// name is still a trip worth showing.
@@ -104,6 +124,7 @@ enum PhotoLibrary {
     static var access: PhotoAccess { .denied }
     static func request() async -> PhotoAccess { .denied }
     static func moments() async -> [PhotoMoment] { [] }
+    static func identifiers(in range: ClosedRange<Date>, limit: Int = 200) async -> [String] { [] }
     static func placeNames(for findings: [PhotoFinding], limit: Int = 40) async -> [String: String] { [:] }
 }
 

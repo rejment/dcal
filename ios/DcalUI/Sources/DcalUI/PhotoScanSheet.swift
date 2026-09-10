@@ -36,6 +36,7 @@ struct PhotoScanSheet: View {
             EventEditSheet(
                 event: finding.proposedEvent(title: names[finding.id] ?? ""),
                 isNew: true,
+                photoRange: finding.start...finding.lastDay.addingTimeInterval(86400),
                 onSave: { event in
                     model.save(event)
                     added.insert(finding.id)

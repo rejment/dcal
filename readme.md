@@ -161,8 +161,9 @@ otherwise is how the first version returned 400 days and told you nothing.
 
 **Nothing is added on its own.** A day with forty photos was a wedding or a
 flooded kitchen, and only you know which. Tapping a row opens the ordinary
-event editor with the dates, length and category filled in, and you supply the
-one thing the phone cannot.
+event editor with the dates, length and category filled in, the whole day's
+photos scrolling sideways above the title field, and any one of them a tap
+away from full screen. You supply the one thing the phone cannot.
 
 One caveat the app repeats on screen: dates come from the photos, so anything
 scanned in later — an old print, a screenshot of something — carries the date

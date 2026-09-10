@@ -109,6 +109,9 @@ struct EventDetailSheet: View {
 struct EventEditSheet: View {
     @State var draft: Event
     let isNew: Bool
+    /// Set when this came from the photo scan: the span whose pictures belong
+    /// on screen while you decide what the day was.
+    let photoRange: ClosedRange<Date>?
     let onSave: (Event) -> Void
     let onDelete: (() -> Void)?
     let onCancel: () -> Void
@@ -118,6 +121,7 @@ struct EventEditSheet: View {
     init(
         event: Event,
         isNew: Bool,
+        photoRange: ClosedRange<Date>? = nil,
         onSave: @escaping (Event) -> Void,
         onDelete: (() -> Void)?,
         onCancel: @escaping () -> Void
@@ -125,6 +129,7 @@ struct EventEditSheet: View {
         _draft = State(initialValue: event)
         _chosenDuration = State(initialValue: nearestChoice(to: event.duration))
         self.isNew = isNew
+        self.photoRange = photoRange
         self.onSave = onSave
         self.onDelete = onDelete
         self.onCancel = onCancel
@@ -133,6 +138,15 @@ struct EventEditSheet: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let photoRange {
+                    Section {
+                        PhotoGallery(range: photoRange)
+                            .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
+                    } footer: {
+                        Text("Tap a photo to see it full screen.")
+                    }
+                }
+
                 Section {
                     TextField("Dentist, Japan, started school…", text: $draft.title)
                         .font(.system(size: 17))

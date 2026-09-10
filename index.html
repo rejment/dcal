@@ -1,0 +1,1182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DCAL">
+<meta name="theme-color" content="#05070e">
+<title>DCAL Lifeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Familjen+Grotesk:wght@400;500;600;700&display=swap">
+<style>
+:root{
+  --void:#05070e;
+  --deep:#0d1730;
+  --dawn:#4a3450;
+  --noon:#21406e;
+  --chalk:#eef2fa;
+  --fog:#7f8dab;
+  --amber:#f5c46b;
+  --edge:rgba(150,175,220,.16);
+  --panel:#0b1122;
+  --panel-2:#131c33;
+  --sans:"Familjen Grotesk",-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+  --serif:"Fraunces",Georgia,"Times New Roman",serif;
+}
+*{box-sizing:border-box}
+html,body{
+  height:100%;margin:0;padding:0;
+  background:var(--void);color:var(--chalk);
+  font-family:var(--sans);font-size:15px;line-height:1.4;
+  overscroll-behavior:none;overflow:hidden;
+  -webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;
+  text-rendering:optimizeLegibility;
+}
+canvas#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* ---------- masthead ---------- */
+.masthead{
+  position:fixed;top:0;left:0;right:0;z-index:6;
+  display:flex;align-items:flex-start;gap:12px;
+  padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 34px;
+  background:linear-gradient(180deg,rgba(5,7,14,.92) 0%,rgba(5,7,14,.75) 45%,rgba(5,7,14,0) 100%);
+  pointer-events:none;
+}
+.where{flex:1;min-width:0}
+.where .lead{
+  font-family:var(--serif);font-optical-sizing:auto;
+  font-weight:300;font-size:clamp(24px,7.2vw,38px);line-height:1.02;
+  letter-spacing:-.015em;margin:0;text-wrap:balance;
+}
+.where .lead b{font-weight:600;font-style:normal}
+.where .span{
+  margin-top:6px;font-size:12.5px;font-weight:500;color:var(--fog);
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+}
+.agechip{
+  color:var(--amber);border:1px solid rgba(245,196,107,.35);
+  border-radius:999px;padding:1px 8px;font-size:11.5px;font-weight:600;
+  font-variant-numeric:tabular-nums;white-space:nowrap;
+}
+.iconbtn{
+  pointer-events:auto;flex:none;
+  width:38px;height:38px;border-radius:12px;
+  border:1px solid var(--edge);background:rgba(19,28,51,.72);
+  color:var(--chalk);font-size:17px;line-height:1;
+  display:grid;place-items:center;cursor:pointer;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+}
+
+/* ---------- control rail ---------- */
+.rail{
+  position:fixed;left:0;right:0;bottom:0;z-index:6;
+  padding:26px 12px calc(env(safe-area-inset-bottom,0px) + 12px);
+  background:linear-gradient(0deg,rgba(5,7,14,.93) 0%,rgba(5,7,14,.72) 55%,rgba(5,7,14,0) 100%);
+  display:flex;flex-direction:column;gap:10px;pointer-events:none;
+}
+.scales{
+  display:flex;gap:6px;overflow-x:auto;pointer-events:auto;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:2px;
+}
+.scales::-webkit-scrollbar{display:none}
+.scale{
+  flex:none;border:1px solid var(--edge);background:rgba(11,17,34,.72);
+  color:var(--fog);font-family:var(--sans);font-size:12.5px;font-weight:600;
+  padding:7px 11px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+  transition:color .15s,border-color .15s,background .15s;
+}
+.scale[aria-pressed="true"]{color:var(--void);background:var(--chalk);border-color:var(--chalk)}
+.tools{display:flex;align-items:center;gap:8px;pointer-events:auto}
+.tools .grow{flex:1}
+.btn{
+  border:1px solid var(--edge);background:rgba(11,17,34,.72);color:var(--chalk);
+  font-family:var(--sans);font-size:14px;font-weight:600;
+  border-radius:12px;padding:10px 14px;cursor:pointer;
+  -webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);
+}
+.btn.sq{width:44px;padding:0;height:42px;font-size:20px;font-weight:500;display:grid;place-items:center}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#2a1d05}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{
+  outline:2px solid var(--amber);outline-offset:2px
+}
+
+/* ---------- sheet ---------- */
+.scrim{
+  position:fixed;inset:0;z-index:10;background:rgba(4,6,12,.6);
+  -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  opacity:0;pointer-events:none;transition:opacity .22s ease;
+}
+.scrim.on{opacity:1;pointer-events:auto}
+.sheet{
+  position:fixed;left:0;right:0;bottom:0;z-index:11;
+  background:var(--panel);border-top:1px solid var(--edge);
+  border-radius:22px 22px 0 0;
+  padding:14px 18px calc(env(safe-area-inset-bottom,0px) + 18px);
+  transform:translateY(102%);transition:transform .26s cubic-bezier(.22,.9,.3,1);
+  max-height:88vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  box-shadow:0 -24px 60px rgba(0,0,0,.5);
+}
+.sheet.on{transform:translateY(0)}
+.grab{width:38px;height:4px;border-radius:99px;background:var(--edge);margin:0 auto 14px}
+.sheet h2{
+  font-family:var(--serif);font-weight:400;font-size:23px;line-height:1.15;
+  margin:0 0 4px;letter-spacing:-.01em;text-wrap:balance;
+}
+.sheet .when{color:var(--fog);font-size:13.5px;margin:0 0 14px;font-variant-numeric:tabular-nums}
+.sheet .note{
+  font-size:14.5px;line-height:1.55;color:#c6d0e4;margin:0 0 16px;
+  max-width:62ch;-webkit-user-select:text;user-select:text;
+}
+.kind{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--fog);margin-bottom:10px}
+.kind i{width:9px;height:9px;border-radius:3px;display:block;font-style:normal}
+.fields{display:grid;gap:11px;margin-bottom:16px}
+.f{display:grid;gap:5px}
+.f label{font-size:12px;font-weight:600;color:var(--fog)}
+.f2{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+input,select,textarea{
+  width:100%;font-family:var(--sans);font-size:16px;color:var(--chalk);
+  background:var(--panel-2);border:1px solid var(--edge);border-radius:11px;
+  padding:11px 12px;-webkit-user-select:text;user-select:text;
+}
+textarea{resize:vertical;min-height:72px;font-size:15px;line-height:1.5}
+select{appearance:none;-webkit-appearance:none}
+.row{display:flex;gap:9px;flex-wrap:wrap}
+.row .grow{flex:1}
+.btn.ghost{background:transparent}
+.btn.danger{background:transparent;border-color:rgba(255,122,156,.4);color:#ff7a9c}
+.menu{display:grid;gap:8px}
+.menu .btn{text-align:left;padding:14px}
+.hint{font-size:12.5px;color:var(--fog);margin:14px 0 0;line-height:1.5;max-width:60ch}
+@media (prefers-reduced-motion:reduce){
+  .sheet,.scrim{transition:none}
+}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+
+<div class="masthead">
+  <div class="where">
+    <h1 class="lead" id="lead">Loading</h1>
+    <div class="span">
+      <span id="spanText">&nbsp;</span>
+      <span class="agechip" id="ageChip" hidden></span>
+    </div>
+  </div>
+  <button class="iconbtn" id="menuBtn" aria-label="More actions">&#8943;</button>
+</div>
+
+<div class="rail">
+  <div class="scales" id="scales" role="group" aria-label="Zoom level"></div>
+  <div class="tools">
+    <button class="btn" id="nowBtn">Now</button>
+    <span class="grow"></span>
+    <button class="btn sq" id="outBtn" aria-label="Zoom out">&minus;</button>
+    <button class="btn sq" id="inBtn" aria-label="Zoom in">+</button>
+    <button class="btn primary" id="newBtn">New event</button>
+  </div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="Details"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   DCAL — a zoomable lifeline.
+   One continuous vertical column of time. The colour of the
+   column IS the time: hour of day when close, season and
+   decade when far away.
+   ============================================================ */
+
+var MIN=60000, HOUR=3600000, DAY=86400000, YEAR=365.2425*DAY;
+
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+function lerp(a,b,t){return a+(b-a)*t;}
+function smooth(a,b,v){var t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t);}
+function ease(t){return t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;}
+function p2(n){return n<10?"0"+n:""+n;}
+
+var WD =["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+var WDL=["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+var MO =["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var MOL=["January","February","March","April","May","June","July","August",
+         "September","October","November","December"];
+
+function wdIdx(d){return (d.getDay()+6)%7;}            /* Monday = 0 */
+function isoWeek(d){
+  var t=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  t.setDate(t.getDate()+3-wdIdx(t));
+  var wk1=new Date(t.getFullYear(),0,4);
+  return 1+Math.round(((t-wk1)/DAY-3+wdIdx(wk1))/7);
+}
+function hhmm(t){var d=new Date(t);return p2(d.getHours())+":"+p2(d.getMinutes());}
+function longDate(t){var d=new Date(t);
+  return WDL[wdIdx(d)]+" "+d.getDate()+" "+MOL[d.getMonth()]+" "+d.getFullYear();}
+function shortDate(t){var d=new Date(t);
+  return d.getDate()+" "+MO[d.getMonth()]+" "+d.getFullYear();}
+function startOfDay(t){var d=new Date(t);d.setHours(0,0,0,0);return d.getTime();}
+
+/* ---------- categories ---------- */
+var CATS={
+  life   :{c:"#f5c46b",n:"Milestone"},
+  work   :{c:"#6aa6f2",n:"Work"},
+  health :{c:"#f2809f",n:"Health & body"},
+  people :{c:"#b98ce8",n:"People"},
+  travel :{c:"#4fc9ae",n:"Travel"},
+  home   :{c:"#9bd473",n:"Home"},
+  rhythm :{c:"#7f8dab",n:"Everyday rhythm"}
+};
+var CATKEYS=Object.keys(CATS);
+
+/* ============================================================
+   Sample lifeline. Replaced the moment you edit anything.
+   ============================================================ */
+function T(y,m,d,h,mi){return new Date(y,m-1,d,h||0,mi||0,0,0).getTime();}
+
+function sampleData(){
+  var out=[], n=0;
+  function add(t,dur,title,cat,imp,note){
+    out.push({id:"s"+(++n),t:t,dur:dur||0,title:title,cat:cat,imp:imp,note:note||""});
+  }
+
+  /* --- the spine of a life (importance 3) --- */
+  add(T(1985,6,14,4,12),0,"Born","life",3,"A Friday morning, six weeks early.");
+  add(T(1989,4,2,0,0),0,"The red bicycle","life",3,"First thing I can actually remember.");
+  add(T(1992,8,17,8,0),0,"Started school","life",3,"");
+  add(T(1996,7,1,0,0),0,"We moved to the coast","life",3,"");
+  add(T(2001,8,20,8,0),0,"Started high school","life",3,"");
+  add(T(2004,9,6,9,0),0,"First real job","life",3,"Warehouse. Six months.");
+  add(T(2006,3,1,0,0),0,"Moved to the city","life",3,"");
+  add(T(2010,6,11,15,0),0,"Graduated","life",3,"");
+  add(T(2013,5,1,0,0),0,"The flat on Bergsgatan","life",3,"Seven good years.");
+  add(T(2019,1,7,9,0),0,"Started at Vantor","life",3,"");
+  add(T(2024,4,20,0,0),0,"Moved to the house","life",3,"");
+  add(T(2029,1,1,0,0),0,"Sabbatical year","life",3,"Planned. Not yet booked.");
+  add(T(2050,6,14,0,0),0,"Retirement, in theory","life",3,"");
+
+  /* --- notable stretches (importance 2) --- */
+  add(T(2016,4,2,0,0),16*DAY,"Japan","travel",2,"Tokyo, Kanazawa, Kyoto.");
+  add(T(2021,7,3,0,0),21*DAY,"Summer on Gotland","travel",2,"");
+  add(T(2023,11,18,0,0),9*DAY,"Lisbon","travel",2,"");
+  add(T(2026,7,4,0,0),24*DAY,"Summer holiday","travel",2,"Four weeks off. Nothing booked yet.");
+  add(T(2027,6,19,0,0),14*DAY,"Summer house, rented","travel",2,"");
+  add(T(2018,10,6,0,0),0,"Grandmother's 90th","people",2,"");
+  add(T(2022,2,28,0,0),3*DAY,"Hospital, appendix","health",2,"");
+
+  /* --- every birthday, so the years have a pulse --- */
+  for(var y=1986;y<=2040;y++){
+    var big=(y-1985)%10===0;
+    add(T(y,6,14,0,0),0,big?("Turning "+(y-1985)):"Birthday","people",big?2:1,"");
+  }
+  /* --- new year, a quiet annual tick --- */
+  for(var y2=1990;y2<=2035;y2++) add(T(y2,1,1,0,0),0,"New Year","people",1,"");
+
+  /* --- the ordinary weeks around today --- */
+  var base=startOfDay(Date.now());
+  for(var i=-40;i<=40;i++){
+    var d=new Date(base); d.setDate(d.getDate()+i);
+    var wd=wdIdx(d), Y=d.getFullYear(), M=d.getMonth(), D=d.getDate();
+    function at(h,mi){return new Date(Y,M,D,h,mi,0,0).getTime();}
+    add(at(6,45),0,"Wake up","rhythm",0,"");
+    add(at(22,30),0,"Lights out","rhythm",0,"");
+    if(wd<5){
+      add(at(8,30),25*MIN,"Stand-up","work",1,"");
+      add(at(12,15),45*MIN,"Lunch","rhythm",0,"");
+      if(i%3===0)  add(at(10,0),60*MIN,"Team meeting","work",1,"");
+      if(i%4===1)  add(at(13,30),150*MIN,"Deep work","work",0,"Phone in the drawer.");
+      if(i%5===2)  add(at(15,0),30*MIN,"One-to-one","work",1,"");
+      add(at(17,10),0,"Leave work","rhythm",0,"");
+    }else{
+      add(at(9,30),90*MIN,"Slow breakfast","home",1,"");
+      if(wd===5) add(at(14,0),120*MIN,"Groceries and laundry","home",0,"");
+    }
+    if(wd===1||wd===3) add(at(18,30),60*MIN,"Swimming","health",1,"");
+    if(wd===4)         add(at(19,0),150*MIN,"Dinner with Kim and Ravi","people",2,"");
+    if(wd===6)         add(at(11,0),180*MIN,"Long walk","health",1,"");
+  }
+
+  /* --- a few things coming up, so the near future isn't blank --- */
+  add(base+3*DAY+9*HOUR+30*MIN,45*MIN,"Dentist","health",2,"Bring the referral.");
+  add(base+6*DAY+18*HOUR,4*HOUR,"Anna's leaving party","people",2,"");
+  add(base+11*DAY+7*HOUR+40*MIN,2*HOUR+20*MIN,"Train to Gothenburg","travel",2,"Seat 34, carriage 4.");
+  add(base+17*DAY+14*HOUR,60*MIN,"Yearly check-up","health",2,"");
+  add(base-2*DAY+16*HOUR,90*MIN,"Bike service","home",1,"");
+
+  out.sort(function(a,b){return a.t-b.t;});
+  return out;
+}
+
+/* ---------- storage ---------- */
+var KEY="dcal.lifeline.v1";
+var events=[];
+function load(){
+  try{
+    var raw=localStorage.getItem(KEY);
+    if(raw){var p=JSON.parse(raw); if(p&&p.length){events=p; sortEvents(); return;}}
+  }catch(e){}
+  events=sampleData();
+}
+function save(){
+  sortEvents();
+  try{localStorage.setItem(KEY,JSON.stringify(events));}catch(e){}
+}
+function sortEvents(){events.sort(function(a,b){return a.t-b.t;});}
+function birthTime(){
+  for(var i=0;i<events.length;i++) if(events[i].title==="Born") return events[i].t;
+  return null;
+}
+function ageAt(t){
+  var b=birthTime(); if(b==null||t<b) return null;
+  var d=new Date(b), e=new Date(t), a=e.getFullYear()-d.getFullYear();
+  if(e.getMonth()<d.getMonth()||(e.getMonth()===d.getMonth()&&e.getDate()<d.getDate())) a--;
+  return a<0?null:a;
+}
+load();
+
+/* ============================================================
+   The view: one number for where, one for how close.
+   ============================================================ */
+var cv=document.getElementById("stage");
+var ctx=cv.getContext("2d");
+var W=0,H=0,DPR=1;
+
+var view={c:Date.now(), k:0};          /* c = centre time, k = px per ms */
+var kMin=1e-12,kMax=1e-3;
+
+var T_MIN=T(1900,1,1), T_MAX=T(2110,1,1);
+
+function tToY(t){return (t-view.c)*view.k + H/2;}
+function yToT(y){return view.c + (y-H/2)/view.k;}
+function span(){return H/view.k;}
+
+function clampView(){
+  view.k=clamp(view.k,kMin,kMax);
+  view.c=clamp(view.c,T_MIN,T_MAX);
+}
+function zoomAt(y,f){
+  var t=yToT(y);
+  view.k=clamp(view.k*f,kMin,kMax);
+  view.c=t-(y-H/2)/view.k;
+  clampView();
+}
+
+/* ---------- tick levels, coarse to fine ---------- */
+var LV=[
+  {id:"m15",u:"min", n:15,ms:15*MIN,   w:0.45},
+  {id:"h1", u:"hour",n:1, ms:HOUR,     w:0.85},
+  {id:"h3", u:"hour",n:3, ms:3*HOUR,   w:1.05},
+  {id:"h6", u:"hour",n:6, ms:6*HOUR,   w:1.2 },
+  {id:"d1", u:"day", n:1, ms:DAY,      w:1.5 },
+  {id:"w1", u:"week",n:1, ms:7*DAY,    w:1.7 },
+  {id:"mo1",u:"mon", n:1, ms:30.44*DAY,w:2.0 },
+  {id:"mo3",u:"mon", n:3, ms:91.3*DAY, w:2.2 },
+  {id:"y1", u:"year",n:1, ms:YEAR,     w:2.5 },
+  {id:"y5", u:"year",n:5, ms:5*YEAR,   w:2.7 },
+  {id:"y10",u:"year",n:10,ms:10*YEAR,  w:2.9 },
+  {id:"y50",u:"year",n:50,ms:50*YEAR,  w:3.1 }
+];
+
+function floorTo(t,lv){
+  var d=new Date(t);
+  switch(lv.u){
+    case "min":  d.setSeconds(0,0); d.setMinutes(Math.floor(d.getMinutes()/lv.n)*lv.n); break;
+    case "hour": d.setMinutes(0,0,0); d.setHours(Math.floor(d.getHours()/lv.n)*lv.n); break;
+    case "day":  d.setHours(0,0,0,0); break;
+    case "week": d.setHours(0,0,0,0); d.setDate(d.getDate()-wdIdx(d)); break;
+    case "mon":  d.setHours(0,0,0,0); d.setDate(1);
+                 d.setMonth(Math.floor(d.getMonth()/lv.n)*lv.n); break;
+    case "year": d.setHours(0,0,0,0); d.setMonth(0,1);
+                 d.setFullYear(Math.floor(d.getFullYear()/lv.n)*lv.n); break;
+  }
+  return d;
+}
+function step(d,lv){
+  var n=new Date(d.getTime());
+  switch(lv.u){
+    case "min":  n.setMinutes(n.getMinutes()+lv.n); break;
+    case "hour": n.setHours(n.getHours()+lv.n); break;
+    case "day":  n.setDate(n.getDate()+lv.n); break;
+    case "week": n.setDate(n.getDate()+7*lv.n); break;
+    case "mon":  n.setMonth(n.getMonth()+lv.n); break;
+    case "year": n.setFullYear(n.getFullYear()+lv.n); break;
+  }
+  return n;
+}
+/* walk every boundary of lv that falls inside [t0,t1] */
+function eachTick(lv,t0,t1,fn){
+  var d=floorTo(t0,lv), guard=0;
+  while(d.getTime()<=t1 && guard++<3000){
+    if(d.getTime()>=t0) fn(d);
+    var nd=step(d,lv);
+    if(nd.getTime()<=d.getTime()) break;
+    d=nd;
+  }
+}
+function tickLabel(d,lv,tight){
+  switch(lv.id){
+    case "m15": case "h1": case "h3": case "h6":
+      return p2(d.getHours())+":"+p2(d.getMinutes());
+    case "d1":  return tight ? String(d.getDate()) : WD[wdIdx(d)]+" "+d.getDate();
+    case "w1":  return "w"+isoWeek(d);
+    case "mo1": return tight ? MO[d.getMonth()] : MOL[d.getMonth()];
+    case "mo3": return "Q"+(Math.floor(d.getMonth()/3)+1);
+    default:    return String(d.getFullYear());
+  }
+}
+
+/* ---------- how the sky looks at a given hour ---------- */
+var SKY=[
+  [0.0 ,[  5,  8, 17]],
+  [4.2 ,[  8, 13, 30]],
+  [5.8 ,[ 26, 36, 71]],
+  [7.0 ,[ 74, 52, 80]],
+  [8.4 ,[ 30, 50, 94]],
+  [12.0,[ 42, 75,124]],
+  [16.0,[ 38, 66,110]],
+  [18.6,[ 82, 52, 76]],
+  [20.6,[ 22, 28, 56]],
+  [24.0,[  5,  8, 17]]
+];
+function skyAt(h){
+  for(var i=0;i<SKY.length-1;i++){
+    if(h<=SKY[i+1][0]){
+      var t=(h-SKY[i][0])/(SKY[i+1][0]-SKY[i][0]);
+      var a=SKY[i][1],b=SKY[i+1][1];
+      return [Math.round(lerp(a[0],b[0],t)),Math.round(lerp(a[1],b[1],t)),Math.round(lerp(a[2],b[2],t))];
+    }
+  }
+  return SKY[SKY.length-1][1];
+}
+function rgb(c,a){return "rgba("+c[0]+","+c[1]+","+c[2]+","+a+")";}
+/* season: cold blue in January, warm gold in July */
+function seasonHue(m,dayFrac){
+  var pos=m+(dayFrac||0);
+  var ph=(Math.cos((pos+0.5-6.5)/12*2*Math.PI)+1)/2;
+  return 216-186*ph;
+}
+
+/* ============================================================
+   Input — pointers, wheel, keys. Every gesture has a button.
+   ============================================================ */
+var pointers=new Map();
+var dragging=false, pinch=null, vel=0, lastMove=0;
+var downAt=null, moved=0, lastTap=0, holdTimer=0;
+
+function avgY(){var s=0,n=0;pointers.forEach(function(p){s+=p.y;n++;});return s/n;}
+function pDist(){
+  var a=[];pointers.forEach(function(p){a.push(p);});
+  return Math.max(1,Math.abs(a[0].y-a[1].y)+Math.abs(a[0].x-a[1].x)*0.25);
+}
+
+cv.addEventListener("pointerdown",function(e){
+  cv.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  vel=0;
+  if(pointers.size===1){
+    dragging=true; moved=0; downAt={x:e.clientX,y:e.clientY,t:performance.now()};
+    clearTimeout(holdTimer);
+    holdTimer=setTimeout(function(){
+      if(dragging&&moved<8){ dragging=false; pointers.clear(); openNew(yToT(downAt.y)); }
+    },560);
+  }else if(pointers.size===2){
+    clearTimeout(holdTimer);
+    pinch={d:pDist(),y:avgY()};
+  }
+  kick();
+});
+
+cv.addEventListener("pointermove",function(e){
+  var p=pointers.get(e.pointerId); if(!p) return;
+  var prevY=p.y, prevX=p.x; p.x=e.clientX; p.y=e.clientY;
+  var now=performance.now();
+
+  if(pointers.size>=2&&pinch){
+    var d=pDist(), y=avgY();
+    var f=d/pinch.d;
+    zoomAt(y,f);
+    view.c-= (y-pinch.y)/view.k;
+    clampView();
+    pinch.d=d; pinch.y=y;
+  }else if(dragging){
+    var dy=p.y-prevY;
+    moved+=Math.abs(dy)+Math.abs(p.x-prevX);
+    if(moved>8) clearTimeout(holdTimer);
+    var dc=-dy/view.k;
+    view.c+=dc; clampView();
+    var dt=Math.max(1,now-lastMove);
+    if(dt<120) vel=vel*0.6+(dc/dt)*0.4;
+    lastMove=now;
+  }
+  kick();
+},{passive:true});
+
+function endPointer(e){
+  clearTimeout(holdTimer);
+  var wasSingle=(pointers.size===1);
+  pointers.delete(e.pointerId);
+  if(pointers.size<2) pinch=null;
+  if(pointers.size===0){
+    if(dragging&&wasSingle&&downAt&&moved<9&&performance.now()-downAt.t<450){
+      vel=0;
+      var now=performance.now();
+      if(now-lastTap<300){ lastTap=0; flyTo(yToT(downAt.y),view.k*3.2,420); }
+      else{ lastTap=now; tap(downAt.x,downAt.y); }
+    }
+    dragging=false;
+  }
+  kick();
+}
+cv.addEventListener("pointerup",endPointer);
+cv.addEventListener("pointercancel",endPointer);
+
+cv.addEventListener("wheel",function(e){
+  e.preventDefault(); vel=0;
+  if(e.ctrlKey||e.metaKey) zoomAt(e.clientY,Math.pow(0.995,e.deltaY));
+  else { view.c+=e.deltaY/view.k; clampView(); }
+  kick();
+},{passive:false});
+
+window.addEventListener("keydown",function(e){
+  if(/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  var s=span();
+  if(e.key==="ArrowDown"){view.c+=s*0.12;}
+  else if(e.key==="ArrowUp"){view.c-=s*0.12;}
+  else if(e.key==="+"||e.key==="="){zoomAt(H/2,1.6);}
+  else if(e.key==="-"||e.key==="_"){zoomAt(H/2,1/1.6);}
+  else if(e.key.toLowerCase()==="t"){goNow();}
+  else if(e.key==="Escape"){closeSheet();}
+  else return;
+  e.preventDefault(); clampView(); kick();
+});
+
+/* stop Safari from zooming the page itself */
+["gesturestart","gesturechange","gestureend"].forEach(function(n){
+  document.addEventListener(n,function(e){e.preventDefault();},{passive:false});
+});
+document.addEventListener("dblclick",function(e){e.preventDefault();},{passive:false});
+
+/* ============================================================
+   Painting. The colour of the column is the time of day,
+   the season, and the decade — in that order of nearness.
+   ============================================================ */
+var GUT=64, RIB=14, CX=0, CW=0, TOPPAD=104, BOTPAD=112;
+var DEEPBASE=[13,23,48];
+
+function hsl2rgb(h,s,l){
+  h=(((h%360)+360)%360)/360;
+  var q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+  function f(t){t=(t+1)%1;
+    if(t<1/6) return p+(q-p)*6*t;
+    if(t<0.5)  return q;
+    if(t<2/3)  return p+(q-p)*(2/3-t)*6;
+    return p;}
+  return [f(h+1/3)*255,f(h)*255,f(h-1/3)*255];
+}
+function colorAt(y){
+  var d=new Date(yToT(y));
+  var moPx=30.44*DAY*view.k, dayPx=DAY*view.k, yrPx=YEAR*view.k;
+  var b0,b1,b2;
+
+  var seasonA=smooth(1.0,8.5,moPx)*0.92;
+  var sc=hsl2rgb(seasonHue(d.getMonth(),(d.getDate()-1)/30),0.42,0.155);
+  b0=lerp(DEEPBASE[0],sc[0],seasonA);
+  b1=lerp(DEEPBASE[1],sc[1],seasonA);
+  b2=lerp(DEEPBASE[2],sc[2],seasonA);
+
+  /* far out: decades read as sediment layers */
+  var decA=1-smooth(9,42,yrPx);
+  if(decA>0.01){
+    var lift=(Math.floor(d.getFullYear()/10)%2)?1.45:0.72;
+    b0=lerp(b0,b0*lift,decA); b1=lerp(b1,b1*lift,decA); b2=lerp(b2,b2*lift,decA);
+  }
+  /* close in: the actual sky */
+  var skyA=smooth(55,190,dayPx);
+  if(skyA>0.003){
+    var s=skyAt(d.getHours()+d.getMinutes()/60);
+    b0=lerp(b0,s[0],skyA); b1=lerp(b1,s[1],skyA); b2=lerp(b2,s[2],skyA);
+  }
+  return "rgb("+Math.round(clamp(b0,0,255))+","+Math.round(clamp(b1,0,255))+","+Math.round(clamp(b2,0,255))+")";
+}
+function timeGradient(){
+  var n=clamp(Math.round(H/4),48,220);
+  var g=ctx.createLinearGradient(0,0,0,H);
+  for(var i=0;i<n;i++) g.addColorStop(i/(n-1),colorAt(i/(n-1)*H));
+  return g;
+}
+
+function rr(x,y,w,h,r){
+  r=Math.min(r,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+function ell(s,max){
+  if(ctx.measureText(s).width<=max) return s;
+  var lo=0,hi=s.length;
+  while(lo<hi){var m=(lo+hi+1)>>1;
+    if(ctx.measureText(s.slice(0,m)+"…").width<=max) lo=m; else hi=m-1;}
+  return s.slice(0,Math.max(1,lo))+"…";
+}
+function SANS(w,sz){return w+" "+sz+'px "Familjen Grotesk", system-ui, sans-serif';}
+
+var hits=[];
+
+function draw(){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  hits.length=0;
+  GUT = W<420?54:70;
+  CX  = GUT+RIB+13;
+  CW  = W-CX-14;
+
+  var t0=yToT(0), t1=yToT(H);
+  var dayPx=DAY*view.k;
+
+  ctx.fillStyle="#05070e"; ctx.fillRect(0,0,W,H);
+
+  /* --- ambient wash + the ribbon itself --- */
+  var grad=timeGradient();
+  ctx.globalAlpha=0.5; ctx.fillStyle=grad; ctx.fillRect(0,0,W,H); ctx.globalAlpha=1;
+  ctx.fillStyle=grad; ctx.fillRect(GUT,0,RIB,H);
+
+  /* --- which levels are legible right now --- */
+  var px=[], i;
+  for(i=0;i<LV.length;i++) px[i]=LV[i].ms*view.k;
+  var major=-1;
+  for(i=0;i<LV.length;i++){ if(px[i]>=66){ major=i; break; } }
+  if(major<0) major=LV.length-1;
+  var minor=(major>0 && px[major-1]>=32)?major-1:-1;
+
+  /* --- alternating bands of the main unit, very quietly --- */
+  if(px[major]<H*1.6){
+    ctx.fillStyle="rgba(190,214,255,.028)";
+    eachTick(LV[major],t0-LV[major].ms,t1,function(d){
+      var par;
+      switch(LV[major].u){
+        case "min": par=Math.floor(d.getMinutes()/LV[major].n)%2; break;
+        case "hour":par=Math.floor(d.getHours()/LV[major].n)%2; break;
+        case "day": par=Math.floor(d.getTime()/DAY)%2; break;
+        case "week":par=isoWeek(d)%2; break;
+        case "mon": par=Math.floor(d.getMonth()/LV[major].n)%2; break;
+        default:    par=Math.floor(d.getFullYear()/LV[major].n)%2;
+      }
+      if(par) return;
+      var ya=tToY(d.getTime()), yb=tToY(step(d,LV[major]).getTime());
+      ctx.fillRect(GUT+RIB,ya,W-GUT-RIB,yb-ya);
+    });
+  }
+
+  /* --- grid --- */
+  for(i=0;i<LV.length;i++){
+    if(px[i]<9 || px[i]>H*2.2) continue;
+    var a=smooth(9,34,px[i])*(0.045+0.05*LV[i].w)*(i===major?2.1:1);
+    if(a<0.012) continue;
+    ctx.strokeStyle="rgba(198,220,255,"+a.toFixed(3)+")";
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    eachTick(LV[i],t0,t1,function(d){
+      var y=Math.round(tToY(d.getTime()))+0.5;
+      ctx.moveTo(GUT+RIB,y); ctx.lineTo(W,y);
+    });
+    ctx.stroke();
+  }
+  /* the ribbon's own edges */
+  ctx.strokeStyle="rgba(0,0,0,.45)"; ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(GUT+.5,0); ctx.lineTo(GUT+.5,H);
+  ctx.moveTo(GUT+RIB-.5,0); ctx.lineTo(GUT+RIB-.5,H);
+  ctx.stroke();
+
+  /* --- ruler --- */
+  ctx.textAlign="right"; ctx.textBaseline="middle";
+  var rTop=92, rBot=H-100;
+  if(minor>=0){
+    ctx.font=SANS(500,10.5);
+    ctx.fillStyle="rgba(190,205,232,.42)";
+    eachTick(LV[minor],t0,t1,function(d){
+      var y=tToY(d.getTime());
+      if(y<rTop||y>rBot) return;
+      ctx.fillText(tickLabel(d,LV[minor],true),GUT-8,y);
+    });
+  }
+  eachTick(LV[major],t0,t1,function(d){
+    var y=tToY(d.getTime());
+    if(y<rTop||y>rBot) return;
+    var wknd=(LV[major].u==="day"&&wdIdx(d)>=5);
+    ctx.font=SANS(600,W<420?12:12.5);
+    ctx.fillStyle=wknd?"rgba(245,196,107,.82)":"rgba(238,242,250,.92)";
+    ctx.fillText(tickLabel(d,LV[major],W<420),GUT-8,y);
+  });
+  ctx.textAlign="left";
+
+  /* --- everything on screen --- */
+  var vis=[];
+  for(i=0;i<events.length;i++){
+    var e=events[i];
+    var ya=tToY(e.t), yb=tToY(e.t+e.dur);
+    if(yb<-60||ya>H+60) continue;
+    vis.push(e);
+  }
+
+  drawNotches(vis);
+
+  var sched=smooth(95,215,dayPx);
+  if(sched<0.995) drawLandmarks(vis,1-sched);
+  if(sched>0.005) drawSchedule(vis,sched);
+
+  drawNow();
+}
+
+/* strata: every single thing leaves a mark in the ribbon */
+function drawNotches(vis){
+  for(var i=0;i<vis.length;i++){
+    var e=vis[i], c=(CATS[e.cat]||CATS.rhythm).c;
+    var ya=tToY(e.t), yb=tToY(e.t+e.dur);
+    var h=Math.max(e.imp>=3?2.6:1.6, yb-ya);
+    var w=e.imp>=3?RIB-2:(e.imp>=2?RIB-4:RIB-7);
+    ctx.globalAlpha=e.imp>=3?0.95:(e.imp>=2?0.7:0.42);
+    ctx.fillStyle=c;
+    ctx.fillRect(GUT+1,ya-h/2,w,h);
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawLandmarks(vis,alpha){
+  var s=span(), minImp;
+  if(s<=5*DAY) minImp=0;
+  else if(s<=50*DAY) minImp=1;
+  else if(s<=4*YEAR) minImp=2;
+  else minImp=3;
+
+  var cand=[],i;
+  for(i=0;i<vis.length;i++){
+    var e=vis[i]; if(e.imp<minImp) continue;
+    var y=tToY(e.t+e.dur/2);
+    if(y<TOPPAD||y>H-BOTPAD) continue;
+    cand.push({e:e,y:y});
+  }
+  cand.sort(function(a,b){
+    return (b.e.imp-a.e.imp) || (Math.abs(a.y-H/2)-Math.abs(b.y-H/2));
+  });
+  var occ=[],placed=[];
+  for(i=0;i<cand.length&&placed.length<70;i++){
+    var o=cand[i], gap=o.e.imp>=3?27:23, ok=true;
+    for(var j=0;j<occ.length;j++) if(Math.abs(occ[j]-o.y)<gap){ok=false;break;}
+    if(!ok) continue;
+    occ.push(o.y); placed.push(o);
+  }
+
+  ctx.globalAlpha=alpha;
+  var showAge=s>360*DAY;
+  for(i=0;i<placed.length;i++){
+    var o=placed[i], e=o.e, y=o.y, c=(CATS[e.cat]||CATS.rhythm).c;
+    var big=e.imp>=3, mid=e.imp===2;
+    var dotX=GUT+RIB+9, textX=dotX+12;
+
+    /* a stretch of time gets a bracket, a moment gets a dot */
+    var ya=tToY(e.t), yb=tToY(e.t+e.dur);
+    if(yb-ya>7){
+      ctx.fillStyle=c; ctx.globalAlpha=alpha*0.55;
+      rr(dotX-2.5,ya,5,yb-ya,2.5); ctx.fill();
+      ctx.globalAlpha=alpha;
+    }
+    ctx.beginPath(); ctx.arc(dotX,y,big?4.6:(mid?3.6:2.6),0,6.2832);
+    ctx.fillStyle=c; ctx.fill();
+    if(big){
+      ctx.globalAlpha=alpha*0.35; ctx.beginPath();
+      ctx.arc(dotX,y,8.5,0,6.2832); ctx.strokeStyle=c; ctx.lineWidth=1.2; ctx.stroke();
+      ctx.globalAlpha=alpha;
+    }
+
+    var ageTxt="";
+    if(showAge){ var a=ageAt(e.t); if(a!==null) ageTxt="age "+a; }
+    var reserve=0;
+    if(ageTxt){ ctx.font=SANS(500,11); reserve=ctx.measureText(ageTxt).width+16; }
+
+    ctx.font=SANS(big?600:(mid?600:500), big?15.5:(mid?13.5:12.5));
+    ctx.fillStyle=big?"#f3f6fc":(mid?"rgba(232,239,250,.9)":"rgba(200,212,232,.72)");
+    ctx.textBaseline="middle";
+    ctx.fillText(ell(e.title,W-textX-14-reserve),textX,y);
+    var tw=Math.min(ctx.measureText(e.title).width,W-textX-14-reserve);
+    hits.push({e:e,x:textX-16,y:y-13,w:tw+30,h:26});
+
+    if(ageTxt){
+      ctx.font=SANS(500,11); ctx.fillStyle="rgba(245,196,107,.62)";
+      ctx.textAlign="right"; ctx.fillText(ageTxt,W-14,y+0.5); ctx.textAlign="left";
+    }
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawSchedule(vis,alpha){
+  var items=[],i;
+  for(i=0;i<vis.length;i++){
+    var e=vis[i], ya=tToY(e.t), yb=tToY(e.t+e.dur);
+    var minH=e.dur>0?26:22;
+    items.push({e:e,y0:ya,y1:Math.max(yb,ya+minH),solid:e.dur>0});
+  }
+  items.sort(function(a,b){return a.y0-b.y0 || b.y1-a.y1;});
+
+  /* pack only against things it actually collides with */
+  var group=[],end=-1e18,groups=[];
+  for(i=0;i<items.length;i++){
+    if(group.length && items[i].y0>=end-0.5){ groups.push(group); group=[]; end=-1e18; }
+    group.push(items[i]); end=Math.max(end,items[i].y1);
+  }
+  if(group.length) groups.push(group);
+  for(i=0;i<groups.length;i++){
+    var g=groups[i], ends=[];
+    for(var a=0;a<g.length;a++){
+      var l=0; while(l<ends.length && ends[l]>g[a].y0+0.5) l++;
+      if(l===ends.length) ends.push(0);
+      ends[l]=g[a].y1; g[a].lane=l;
+    }
+    for(a=0;a<g.length;a++) g[a].lanes=ends.length;
+  }
+
+  ctx.globalAlpha=alpha; ctx.textBaseline="middle";
+  for(i=0;i<items.length;i++){
+    var it=items[i], ev=it.e, col=(CATS[ev.cat]||CATS.rhythm).c;
+    var lanes=Math.min(it.lanes,4), lane=Math.min(it.lane,lanes-1);
+    var w=CW/lanes, x=CX+lane*w, h=it.y1-it.y0;
+    w-=4;
+    if(it.y1<-10||it.y0>H+10) continue;
+    hits.push({e:ev,x:x,y:it.y0,w:w,h:h});
+
+    if(it.solid){
+      ctx.fillStyle=col; ctx.globalAlpha=alpha*0.16;
+      rr(x,it.y0,w,h,9); ctx.fill();
+      ctx.globalAlpha=alpha*0.4; ctx.strokeStyle=col; ctx.lineWidth=1;
+      rr(x+.5,it.y0+.5,w-1,h-1,9); ctx.stroke();
+      ctx.globalAlpha=alpha; ctx.fillStyle=col;
+      rr(x,it.y0+2,3.5,h-4,2); ctx.fill();
+
+      var tx=x+12, tw=w-20;
+      ctx.font=SANS(600,13); ctx.fillStyle="#eff3fb";
+      if(h>=40){
+        ctx.fillText(ell(ev.title,tw),tx,it.y0+16);
+        ctx.font=SANS(500,11.5); ctx.fillStyle="rgba(198,212,236,.72)";
+        ctx.fillText(hhmm(ev.t)+"–"+hhmm(ev.t+ev.dur),tx,it.y0+32);
+      }else{
+        ctx.fillText(ell(ev.title,tw),tx,it.y0+h/2);
+      }
+    }else{
+      ctx.globalAlpha=alpha;
+      ctx.beginPath(); ctx.arc(x+7,it.y0+h/2,3.4,0,6.2832);
+      ctx.fillStyle=col; ctx.fill();
+      ctx.font=SANS(500,12.5); ctx.fillStyle="rgba(206,218,240,.78)";
+      ctx.fillText(ell(ev.title,w-40),x+17,it.y0+h/2);
+      ctx.font=SANS(500,11); ctx.fillStyle="rgba(160,176,205,.6)";
+      ctx.textAlign="right"; ctx.fillText(hhmm(ev.t),x+w-2,it.y0+h/2); ctx.textAlign="left";
+    }
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawNow(){
+  var y=tToY(Date.now());
+  if(y<-30||y>H+30) return;
+  ctx.save();
+  ctx.strokeStyle="rgba(255,255,255,.8)"; ctx.lineWidth=1.4;
+  ctx.shadowColor="rgba(255,255,255,.55)"; ctx.shadowBlur=9;
+  ctx.beginPath(); ctx.moveTo(GUT+RIB,y); ctx.lineTo(W-10,y); ctx.stroke();
+  ctx.beginPath(); ctx.arc(GUT+RIB/2,y,4.2,0,6.2832);
+  ctx.fillStyle="#fff"; ctx.fill();
+  ctx.restore();
+  ctx.font=SANS(600,10);
+  ctx.fillStyle="rgba(255,255,255,.75)";
+  ctx.textAlign="right"; ctx.textBaseline="bottom";
+  ctx.fillText("now",W-10,y-5);
+  ctx.textAlign="left"; ctx.textBaseline="middle";
+}
+
+/* ============================================================
+   Chrome — the words that say where you are.
+   ============================================================ */
+var lead=document.getElementById("lead");
+var spanText=document.getElementById("spanText");
+var ageChip=document.getElementById("ageChip");
+var lastLead="",lastSpan="",lastAge="";
+
+function spanWords(s){
+  var n;
+  if(s<4*HOUR){ n=Math.max(1,Math.round(s/HOUR)); return n===1?"one hour":n+" hours"; }
+  if(s<10*DAY){ n=Math.max(1,Math.round(s/DAY)); return n===1?"one day":n+" days"; }
+  if(s<70*DAY){ n=Math.round(s/(7*DAY)); return n<=1?"one week":n+" weeks"; }
+  if(s<500*DAY){ n=Math.round(s/(30.44*DAY)); return n<=1?"one month":n+" months"; }
+  n=Math.round(s/YEAR); return n<=1?"one year":n+" years";
+}
+function updateChrome(){
+  var s=span(), d=new Date(view.c), L;
+  if(s<2.6*DAY)      L=WDL[wdIdx(d)]+"<br><b>"+d.getDate()+" "+MOL[d.getMonth()]+" "+d.getFullYear()+"</b>";
+  else if(s<24*DAY)  L="Week "+isoWeek(d)+"<br><b>"+MOL[d.getMonth()]+" "+d.getFullYear()+"</b>";
+  else if(s<150*DAY) L="<b>"+MOL[d.getMonth()]+"</b> "+d.getFullYear();
+  else if(s<2.5*YEAR)L="<b>"+d.getFullYear()+"</b>";
+  else if(s<26*YEAR) L="The <b>"+(Math.floor(d.getFullYear()/10)*10)+"s</b>";
+  else               L="<b>"+new Date(yToT(0)).getFullYear()+"–"+new Date(yToT(H)).getFullYear()+"</b>";
+  if(L!==lastLead){ lead.innerHTML=L; lastLead=L; }
+
+  var sw="Showing "+spanWords(s);
+  if(sw!==lastSpan){ spanText.textContent=sw; lastSpan=sw; }
+
+  var a=ageAt(view.c), at=a===null?"":"age "+a;
+  if(at!==lastAge){
+    lastAge=at;
+    if(at){ ageChip.textContent=at; ageChip.hidden=false; } else ageChip.hidden=true;
+  }
+  syncScales(s);
+}
+
+/* ---------- zoom presets ---------- */
+var PRESETS=[
+  {n:"Hours",   s:15*HOUR},
+  {n:"Days",    s:5*DAY},
+  {n:"Weeks",   s:6*7*DAY},
+  {n:"Months",  s:14*30.44*DAY},
+  {n:"Years",   s:12*YEAR},
+  {n:"Life",s:0}
+];
+function lifeWindow(){
+  var b=birthTime(); if(b==null) b=Date.now()-40*YEAR;
+  var z=Date.now()+6*YEAR;
+  var a=b-0.17*(z-b);
+  return {c:(a+z)/2, s:z-a};
+}
+var scalesEl=document.getElementById("scales");
+PRESETS.forEach(function(p,idx){
+  var b=document.createElement("button");
+  b.className="scale"; b.type="button"; b.textContent=p.n;
+  b.setAttribute("aria-pressed","false");
+  b.addEventListener("click",function(){
+    if(p.s===0){ var lw=lifeWindow(); flyTo(lw.c,H/lw.s,620); }
+    else flyTo(view.c,H/p.s,520);
+  });
+  scalesEl.appendChild(b);
+});
+function syncScales(s){
+  var best=0,bd=1e9;
+  for(var i=0;i<PRESETS.length;i++){
+    var ps=PRESETS[i].s||lifeWindow().s;
+    var d=Math.abs(Math.log(s/ps));
+    if(d<bd){bd=d;best=i;}
+  }
+  var kids=scalesEl.children;
+  for(i=0;i<kids.length;i++)
+    kids[i].setAttribute("aria-pressed", (i===best&&bd<0.62)?"true":"false");
+}
+
+/* ============================================================
+   Sheets
+   ============================================================ */
+var sheet=document.getElementById("sheet"), scrim=document.getElementById("scrim");
+function openSheet(html){
+  sheet.innerHTML='<div class="grab"></div>'+html;
+  sheet.classList.add("on"); scrim.classList.add("on");
+}
+function closeSheet(){ sheet.classList.remove("on"); scrim.classList.remove("on"); }
+scrim.addEventListener("click",closeSheet);
+
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+function pad(t){var d=new Date(t);
+  return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate());}
+function midnight(t){var d=new Date(t);return d.getHours()===0&&d.getMinutes()===0;}
+
+function whenText(e){
+  if(e.dur===0) return longDate(e.t)+(midnight(e.t)?"":", "+hhmm(e.t));
+  if(e.dur<DAY) return longDate(e.t)+", "+hhmm(e.t)+"–"+hhmm(e.t+e.dur);
+  return shortDate(e.t)+" to "+shortDate(e.t+e.dur-1);
+}
+function ageLine(e){
+  var a=ageAt(e.t);
+  if(a===null||a===0) return "";
+  return e.t<Date.now() ? "You were "+a+"." : "You'll be "+a+".";
+}
+
+function openDetail(e){
+  var cat=CATS[e.cat]||CATS.rhythm, al=ageLine(e);
+  openSheet(
+    '<div class="kind"><i style="background:'+cat.c+'"></i>'+esc(cat.n)+'</div>'+
+    '<h2>'+esc(e.title)+'</h2>'+
+    '<p class="when">'+esc(whenText(e))+(al?" &nbsp;"+esc(al):"")+'</p>'+
+    (e.note?'<p class="note">'+esc(e.note)+'</p>':'')+
+    '<div class="row"><button class="btn grow" id="edB">Edit</button>'+
+    '<button class="btn ghost" id="clB">Close</button></div>'
+  );
+  document.getElementById("edB").onclick=function(){openEdit(e);};
+  document.getElementById("clB").onclick=closeSheet;
+}
+
+var DURS=[[0,"A moment"],[15*MIN,"15 minutes"],[30*MIN,"30 minutes"],[HOUR,"1 hour"],
+  [2*HOUR,"2 hours"],[4*HOUR,"4 hours"],[DAY,"All day"],[2*DAY,"2 days"],
+  [7*DAY,"A week"],[14*DAY,"2 weeks"],[30*DAY,"A month"]];
+var IMPS=[[0,"Everyday"],[1,"Worth remembering"],[2,"Notable"],[3,"Milestone"]];
+
+function opts(list,sel){
+  return list.map(function(o){
+    return '<option value="'+o[0]+'"'+(String(o[0])===String(sel)?" selected":"")+'>'+esc(o[1])+'</option>';
+  }).join("");
+}
+function nearestDur(v){
+  var best=DURS[0][0],bd=Infinity;
+  DURS.forEach(function(d){var x=Math.abs(d[0]-v); if(x<bd){bd=x;best=d[0];}});
+  return best;
+}
+
+function openEdit(e,isNew){
+  openSheet(
+    '<h2>'+(isNew?"New event":"Edit event")+'</h2>'+
+    '<div class="fields">'+
+      '<div class="f"><label for="fTitle">What is it?</label>'+
+        '<input id="fTitle" type="text" value="'+esc(e.title)+'" placeholder="Dentist, Japan, started school…"></div>'+
+      '<div class="f2">'+
+        '<div class="f"><label for="fDate">Date</label><input id="fDate" type="date" value="'+pad(e.t)+'"></div>'+
+        '<div class="f"><label for="fTime">Time</label><input id="fTime" type="time" value="'+hhmm(e.t)+'"></div>'+
+      '</div>'+
+      '<div class="f2">'+
+        '<div class="f"><label for="fDur">How long</label><select id="fDur">'+opts(DURS,nearestDur(e.dur))+'</select></div>'+
+        '<div class="f"><label for="fImp">How big</label><select id="fImp">'+opts(IMPS,e.imp)+'</select></div>'+
+      '</div>'+
+      '<div class="f"><label for="fCat">Part of life</label><select id="fCat">'+
+        CATKEYS.map(function(k){return '<option value="'+k+'"'+(k===e.cat?" selected":"")+'>'+esc(CATS[k].n)+'</option>';}).join("")+
+      '</select></div>'+
+      '<div class="f"><label for="fNote">Anything to remember</label><textarea id="fNote" placeholder="Optional">'+esc(e.note||"")+'</textarea></div>'+
+    '</div>'+
+    '<div class="row"><button class="btn primary grow" id="svB">Save event</button>'+
+    '<button class="btn ghost" id="ccB">Cancel</button></div>'+
+    (isNew?"":'<div class="row" style="margin-top:9px"><button class="btn danger grow" id="dlB">Delete this event</button></div>')
+  );
+  document.getElementById("svB").onclick=function(){
+    var t=document.getElementById("fTitle").value.trim()||"Untitled";
+    var dv=document.getElementById("fDate").value, tv=document.getElementById("fTime").value||"00:00";
+    var parts=dv.split("-"), hm=tv.split(":");
+    var when=new Date(+parts[0],(+parts[1])-1,+parts[2],+hm[0],+hm[1],0,0).getTime();
+    if(isNaN(when)) when=e.t;
+    e.title=t; e.t=when;
+    e.dur=+document.getElementById("fDur").value;
+    e.imp=+document.getElementById("fImp").value;
+    e.cat=document.getElementById("fCat").value;
+    e.note=document.getElementById("fNote").value.trim();
+    if(isNew) events.push(e);
+    save(); closeSheet(); flyTo(when+e.dur/2,view.k,380);
+  };
+  document.getElementById("ccB").onclick=closeSheet;
+  var dl=document.getElementById("dlB");
+  if(dl) dl.onclick=function(){
+    var i=events.indexOf(e); if(i>=0) events.splice(i,1);
+    save(); closeSheet(); kick();
+  };
+}
+
+function openNew(t){
+  var d=new Date(t);
+  if(span()>3*DAY){ d.setHours(12,0,0,0); }
+  else { d.setMinutes(Math.round(d.getMinutes()/15)*15,0,0); }
+  openEdit({id:"u"+Date.now(),t:d.getTime(),dur:span()>60*DAY?0:HOUR,
+            title:"",cat:"life",imp:span()>60*DAY?3:1,note:""},true);
+}
+
+function openMenu(){
+  openSheet(
+    '<h2>Lifeline</h2>'+
+    '<div class="menu">'+
+      '<div class="f"><label for="fJump">Go to a date</label>'+
+        '<div class="row"><input id="fJump" type="date" value="'+pad(view.c)+'" style="flex:1">'+
+        '<button class="btn" id="jpB">Go</button></div></div>'+
+      '<button class="btn" id="rsB">Reset to the sample lifeline</button>'+
+    '</div>'+
+    '<p class="hint">Pinch to zoom, or use the scale buttons. Double-tap to zoom into a spot. '+
+    'Press and hold anywhere on the timeline to add something there. '+
+    'Everything you add is stored on this device only.</p>'+
+    '<div class="row" style="margin-top:14px"><button class="btn ghost grow" id="mcB">Close</button></div>'
+  );
+  document.getElementById("jpB").onclick=function(){
+    var v=document.getElementById("fJump").value; if(!v) return;
+    var p=v.split("-");
+    var t=new Date(+p[0],(+p[1])-1,+p[2],12,0,0,0).getTime();
+    closeSheet(); flyTo(t,view.k,600);
+  };
+  document.getElementById("rsB").onclick=function(){
+    events=sampleData(); save(); closeSheet(); goNow();
+  };
+  document.getElementById("mcB").onclick=closeSheet;
+}
+
+function tap(x,y){
+  for(var i=hits.length-1;i>=0;i--){
+    var h=hits[i];
+    if(x>=h.x&&x<=h.x+h.w&&y>=h.y&&y<=h.y+h.h){ openDetail(h.e); return; }
+  }
+}
+
+/* ============================================================
+   Motion
+   ============================================================ */
+var raf=0, anim=null, lastFrame=0;
+function kick(){ if(!raf) raf=requestAnimationFrame(frame); }
+function flyTo(c,k,dur){
+  anim={c0:view.c,k0:Math.log(view.k),c1:clamp(c,T_MIN,T_MAX),
+        k1:Math.log(clamp(k,kMin,kMax)),t0:performance.now(),dur:dur||480};
+  vel=0; kick();
+}
+function goNow(){ flyTo(Date.now(), span()>90*DAY?H/(15*HOUR):view.k, 620); }
+function frame(now){
+  raf=0;
+  var dt=lastFrame?Math.min(64,now-lastFrame):16; lastFrame=now;
+  var cont=false;
+  if(anim){
+    var p=clamp((now-anim.t0)/anim.dur,0,1), t=ease(p);
+    view.k=Math.exp(lerp(anim.k0,anim.k1,t));
+    view.c=lerp(anim.c0,anim.c1,t);
+    clampView();
+    if(p>=1) anim=null; else cont=true;
+  }else if(!dragging && vel!==0){
+    view.c+=vel*dt; vel*=Math.pow(0.9955,dt); clampView();
+    if(Math.abs(vel)*1000 < 16/view.k) vel=0; else cont=true;
+  }
+  draw(); updateChrome();
+  if(cont) kick();
+}
+
+function resize(){
+  DPR=Math.min(3,window.devicePixelRatio||1);
+  W=cv.clientWidth||window.innerWidth;
+  H=cv.clientHeight||window.innerHeight;
+  cv.width=Math.round(W*DPR); cv.height=Math.round(H*DPR);
+  kMax=H/(2*HOUR); kMin=H/(140*YEAR);
+  clampView(); kick();
+}
+window.addEventListener("resize",resize);
+window.addEventListener("orientationchange",function(){setTimeout(resize,220);});
+if(window.visualViewport) window.visualViewport.addEventListener("resize",resize);
+
+document.getElementById("nowBtn").onclick=goNow;
+document.getElementById("inBtn").onclick=function(){zoomAt(H/2,1.8);kick();};
+document.getElementById("outBtn").onclick=function(){zoomAt(H/2,1/1.8);kick();};
+document.getElementById("newBtn").onclick=function(){openNew(view.c);};
+document.getElementById("menuBtn").onclick=openMenu;
+
+/* ---------- go ---------- */
+resize();
+view.c=Date.now();
+view.k=H/(15*HOUR);
+clampView();
+kick();
+setInterval(kick,20000);
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(kick);
+})();
+</script>
+</body>
+</html>

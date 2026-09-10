@@ -67,6 +67,7 @@ struct TimelineCanvas: View {
         ribbonEdges.addLine(to: CGPoint(x: metrics.ribbon.maxX - 0.5, y: size.height))
         context.stroke(ribbonEdges, with: .color(.black.opacity(0.45)), lineWidth: 1)
 
+        drawPhotoGlow(&context)
         drawRuler(&context, size: size)
 
         for notch in layout.notches {
@@ -87,6 +88,36 @@ struct TimelineCanvas: View {
         }
 
         drawNow(&context, size: size)
+    }
+
+    // MARK: - Where the photographs were
+
+    /// Brightness inside the ribbon, which is the one channel the colour of
+    /// the time and the coloured event notches have both left alone. Batched
+    /// into a dozen levels so a lifetime is a dozen paths rather than four
+    /// hundred rectangles.
+    private func drawPhotoGlow(_ context: inout GraphicsContext) {
+        guard !layout.photoGlow.isEmpty else { return }
+        let ribbon = layout.metrics.ribbon
+        let bucket = layout.glowBucketPoints
+
+        var paths: [Int: Path] = [:]
+        for (index, value) in layout.photoGlow.enumerated() where value > 0.02 {
+            let level = min(11, Int(value * 12))
+            paths[level, default: Path()].addRect(CGRect(
+                x: ribbon.minX,
+                y: CGFloat(index) * bucket,
+                width: ribbon.width,
+                height: bucket + 0.5
+            ))
+        }
+        for (level, path) in paths {
+            let strength = (Double(level) + 1) / 12
+            context.fill(
+                path,
+                with: .color(Color(hex: 0xFFF3D8, opacity: strength * 0.5))
+            )
+        }
     }
 
     // MARK: - Ruler

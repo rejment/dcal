@@ -255,9 +255,16 @@ struct MenuSheet: View {
                     Button(action: onScanPhotos) {
                         Label("Find days in my photos", systemImage: "photo.on.rectangle.angled")
                     }
+                    Toggle("Show photos in the ribbon", isOn: Binding(
+                        get: { model.showPhotoGlow },
+                        set: { model.showPhotoGlow = $0 }
+                    ))
                 } footer: {
                     Text("Picks out the days that look different from your ordinary "
-                        + "ones. Reads only dates and places, never the pictures.")
+                        + "ones. Reads only dates and places, never the pictures.\n\n"
+                        + "The ribbon brightens where you took photographs, so the "
+                        + "full stretches of your life show up without recording "
+                        + "anything.")
                 }
 
                 Section {

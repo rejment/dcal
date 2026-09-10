@@ -30,6 +30,16 @@ public final class TimelineModel {
 
     let tickCalendar = TickCalendar.standard()
     private let store: LifelineStore?
+    private let densityStore = try? PhotoDensityStore(url: PhotoDensityStore.defaultURL())
+
+    /// Counts per day from the photo library, painted as brightness in the
+    /// ribbon. A cache, rebuilt rather than migrated.
+    public private(set) var photoDensity: PhotoDensity?
+
+    /// Off is a real answer - the glow may just be noise on some libraries.
+    var showPhotoGlow: Bool = UserDefaults.standard.object(forKey: "dcal.photoGlow") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showPhotoGlow, forKey: "dcal.photoGlow") }
+    }
 
     /// Decaying pan, in seconds-of-timeline per second of real time.
     private var flingVelocity: Double = 0
@@ -58,6 +68,8 @@ public final class TimelineModel {
         let visible = try? FileManager.default.url(
             for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true
         )
+
+        photoDensity = densityStore?.load()
 
         switch store?.loadOrSalvage(salvageInto: visible) ?? .nothingSaved {
         case .loaded(let saved):
@@ -106,6 +118,7 @@ public final class TimelineModel {
             chromeBottom: max(0, size.height - chromeBottomY),
             lifeline: lifeline,
             tickCalendar: tickCalendar,
+            photoDensity: showPhotoGlow ? photoDensity : nil,
             now: Date()
         )
     }
@@ -258,6 +271,25 @@ public final class TimelineModel {
     func delete(_ event: Event) {
         lifeline.remove(id: event.id)
         persist()
+    }
+
+    // MARK: - Photographs
+
+    func rebuildPhotoDensity(from moments: [PhotoMoment]) {
+        let built = PhotoDensity(moments: moments, calendar: calendar)
+        photoDensity = built.isEmpty ? nil : built
+        if let built = photoDensity { densityStore?.save(built) }
+    }
+
+    /// On launch, quietly, when permission is already given. Half a day old is
+    /// fresh enough - nobody photographs a life fast enough for it to matter,
+    /// and rereading a large library on every launch would be rude.
+    func refreshPhotoDensityIfAllowed() async {
+        guard PhotoLibrary.access == .allowed || PhotoLibrary.access == .limited else { return }
+        if let existing = photoDensity, Date().timeIntervalSince(existing.built) < 12 * 3600 {
+            return
+        }
+        rebuildPhotoDensity(from: await PhotoLibrary.moments())
     }
 
     // MARK: - Import and export

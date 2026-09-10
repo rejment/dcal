@@ -135,7 +135,16 @@ A calendar holds appointments; this holds the things you'd otherwise lose. The
 best record of those you already have is your photo library — every picture
 carries when it was taken and usually where.
 
-**⋯ → Find days in my photos** reads that, and only that. Three fields per
+**The ribbon brightens where you took photographs.** Always, without running
+anything — so the full years and the empty ones are visible at a glance, and a
+decade you have written nothing down about is not a blank column. It uses the
+one channel left: the colour of the ribbon is the time, coloured notches are
+what you have recorded, and brightness is where life was photographed. Counts
+per day and nothing else are cached on disk (a few tens of kilobytes for forty
+years), refreshed quietly at launch. Turn it off in ⋯ if it is noise on your
+library.
+
+**⋯ → Find days in my photos** goes further and reads that, and only that. Three fields per
 photo: date, coordinate, and whether you hearted it. The pictures themselves
 are never decoded, nothing is uploaded, and the scan works in aeroplane mode.
 

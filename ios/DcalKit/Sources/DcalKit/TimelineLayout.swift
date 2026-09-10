@@ -73,6 +73,10 @@ public struct TimelineLayout: Sendable {
     public let landmarks: [Landmark]
     public let scheduleOpacity: Double
     public let nowY: CGFloat?
+    /// How photographed each slice of the ribbon was, 0 to 1, top to bottom.
+    /// Empty when there is no photo library to draw on.
+    public let photoGlow: [Double]
+    public let glowBucketPoints: CGFloat
 
     /// Whatever was drawn at that point, topmost first.
     public func event(at point: CGPoint) -> Event? {
@@ -97,6 +101,7 @@ public enum TimelineLayoutBuilder {
         chromeBottom: CGFloat,
         lifeline: Lifeline,
         tickCalendar: TickCalendar,
+        photoDensity: PhotoDensity? = nil,
         now: Date = Date()
     ) -> TimelineLayout {
         let calendar = tickCalendar.calendar
@@ -253,10 +258,14 @@ public enum TimelineLayoutBuilder {
         let nowYRaw = scale.y(for: now)
         let nowY = (nowYRaw > -30 && nowYRaw < size.height + 30) ? nowYRaw : nil
 
+        let glowBucketPoints: CGFloat = 2
+        let photoGlow = photoDensity?.profile(scale: scale, bucketPoints: glowBucketPoints) ?? []
+
         return TimelineLayout(
             metrics: metrics, groundStops: groundStops, bands: bands, grid: grid,
             ticks: ticks, notches: notches, blocks: blocks, landmarks: landmarks,
-            scheduleOpacity: scheduleOpacity, nowY: nowY
+            scheduleOpacity: scheduleOpacity, nowY: nowY,
+            photoGlow: photoGlow, glowBucketPoints: glowBucketPoints
         )
     }
 

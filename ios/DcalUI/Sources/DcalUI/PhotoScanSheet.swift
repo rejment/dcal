@@ -225,6 +225,7 @@ struct PhotoScanSheet: View {
 
         working = true
         let moments = await PhotoLibrary.moments()
+        model.rebuildPhotoDensity(from: moments)
         let found = PhotoScan.findings(in: moments, calendar: model.calendar)
         allFindings = found
         hasScanned = true

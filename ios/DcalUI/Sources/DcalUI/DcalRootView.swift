@@ -124,6 +124,7 @@ public struct DcalRootView: View {
         }
         .background(Theme.ground)
         .preferredColorScheme(.dark)
+        .task { await model.refreshPhotoDensityIfAllowed() }
         .onPreferenceChange(ChromeTopKey.self) { edge in
             Task { @MainActor in model.chromeTopY = edge + 8 }
         }

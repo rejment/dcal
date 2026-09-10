@@ -234,16 +234,33 @@ public final class TimelineModel {
 
     var document: LifelineDocument { LifelineDocument(calendar: calendar) }
 
+    enum ExportFormat {
+        /// Keeps everything, including notes with line breaks in them.
+        case backup
+        /// Columns, for editing a life in a spreadsheet.
+        case spreadsheet
+    }
+
     /// Writes the lifeline to a file in the temporary directory and hands
     /// back its URL, ready for the share sheet.
-    func writeExport() throws -> URL {
+    func writeExport(as format: ExportFormat) throws -> URL {
         let parts = calendar.dateComponents([.year, .month, .day], from: Date())
         let stamp = String(
             format: "%04d-%02d-%02d",
             parts.year ?? 0, parts.month ?? 1, parts.day ?? 1
         )
-        let url = URL.temporaryDirectory.appending(path: "dcal-lifeline-\(stamp).json")
-        try document.text(for: lifeline).write(to: url, atomically: true, encoding: .utf8)
+        let text: String
+        let extension_: String
+        switch format {
+        case .backup:
+            text = document.text(for: lifeline)
+            extension_ = "json"
+        case .spreadsheet:
+            text = document.csv(for: lifeline)
+            extension_ = "csv"
+        }
+        let url = URL.temporaryDirectory.appending(path: "dcal-lifeline-\(stamp).\(extension_)")
+        try text.write(to: url, atomically: true, encoding: .utf8)
         return url
     }
 

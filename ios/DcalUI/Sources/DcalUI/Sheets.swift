@@ -204,7 +204,8 @@ struct MenuSheet: View {
     let onClose: () -> Void
 
     @State private var jumpTo: Date
-    @State private var exportURL: URL?
+    @State private var backupURL: URL?
+    @State private var spreadsheetURL: URL?
     @State private var picking = false
     /// Parsed and waiting for you to say what to do with it. Nothing is
     /// touched until you choose.
@@ -231,13 +232,18 @@ struct MenuSheet: View {
                 }
 
                 Section {
-                    if let exportURL {
-                        ShareLink(item: exportURL) {
-                            Label("Save a copy", systemImage: "square.and.arrow.up")
+                    if let backupURL {
+                        ShareLink(item: backupURL) {
+                            Label("Save a backup", systemImage: "square.and.arrow.up")
                         }
                     } else {
                         Label("Preparing…", systemImage: "square.and.arrow.up")
                             .foregroundStyle(.secondary)
+                    }
+                    if let spreadsheetURL {
+                        ShareLink(item: spreadsheetURL) {
+                            Label("Save as a spreadsheet", systemImage: "tablecells")
+                        }
                     }
                     Button {
                         picking = true
@@ -248,9 +254,11 @@ struct MenuSheet: View {
                     Text("Backup")
                 } footer: {
                     Text("""
-                    A plain JSON file, one event per line, dates in your own \
-                    time. Edit it on a computer and open it again here, or keep \
-                    it somewhere safe as a backup.
+                    The backup is JSON, one event per line. The spreadsheet is \
+                    CSV, for filling in a life in Numbers or Excel — a column of \
+                    titles and a column of dates is enough to start with.
+
+                    Opening a file takes either kind.
                     """)
                 }
 
@@ -283,9 +291,10 @@ struct MenuSheet: View {
             }
         }
         .task {
-            exportURL = try? model.writeExport()
+            backupURL = try? model.writeExport(as: .backup)
+            spreadsheetURL = try? model.writeExport(as: .spreadsheet)
         }
-        .fileImporter(isPresented: $picking, allowedContentTypes: [.json, .plainText]) { result in
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.json, .commaSeparatedText, .plainText, .text]) { result in
             switch result {
             case .success(let url):
                 do { incoming = try model.read(fileAt: url) }

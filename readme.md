@@ -59,9 +59,11 @@ out, and it is kept because it is still the fastest way to try a change.
 
 ## Backups, and editing a life on a computer
 
-**⋯ → Backup → Save a copy** writes a JSON file and hands it to the share
-sheet — Files, iCloud, AirDrop, mail. **Open a file** reads one back, asking
-whether to replace everything or add to it.
+**⋯ → Backup** writes the lifeline out and hands it to the share sheet —
+Files, iCloud, AirDrop, mail. **Save a backup** gives JSON, **Save as a
+spreadsheet** gives CSV, and **Open a file** reads either back, asking whether
+to replace everything or add to it. The kind is worked out from the contents,
+not the file extension.
 
 The file is meant to be typed in, not just parsed:
 
@@ -96,9 +98,36 @@ old backup still works. Re-importing an edited export **updates** events rather
 than duplicating them, because the ids come back with it — drop the `id` line
 to turn an edit into a new event.
 
-When something is wrong the message names the event and says what to type:
-*"School" (event 2) has a date I can't read: "14 juni 1992". Write it as
-1985-06-14, or 1985-06-14 04:12.*
+### The spreadsheet
+
+For putting a life in from old photos and notes, a spreadsheet beats a text
+editor — columns, sorting, fill-down, and a date picker. Same fields, one row
+each, with the column names on the first row:
+
+```
+title,start,lasts,weight,category,note,id
+Born,1985-06-14 04:12,,milestone,life,"A Friday morning, six weeks early.",…
+Japan,2016-04-02,16 days,notable,travel,,…
+```
+
+Only `title` and `start` need to be there. Columns are found by name, so their
+order doesn't matter, extra ones are ignored, and they can be called what a
+spreadsheet would call them — `what`, `when`, `how long`, `how big` all work.
+
+Reading copes with whatever saved the file: commas, semicolons (which is what
+Excel writes on a Swedish machine) or tabs; Windows or Unix line endings; a
+byte order mark; Excel's own `sep=;` first line. Fields are quoted on the way
+out whenever they contain any possible separator, so a file survives being
+re-saved by a spreadsheet that uses a different one.
+
+### When something is wrong
+
+The message names the event and says what to type — pointing at a JSON event
+or a spreadsheet row, whichever you're looking at:
+
+> "School" (row 3) has a date I can't read: "14 juni 1992". Write it as
+> 1985-06-14, or 1985-06-14 04:12.
+
 
 ## Not done yet
 

@@ -24,34 +24,51 @@
 
 import Foundation
 
+/// Where in the file something went wrong, said the way the person's own
+/// editor would say it: a spreadsheet has rows, a JSON file has events.
+public enum Place: Equatable, Sendable {
+    case event(Int)
+    case row(Int)
+
+    var described: String {
+        switch self {
+        case .event(let number): "event \(number)"
+        case .row(let number): "row \(number)"
+        }
+    }
+}
+
 public enum LifelineDocumentError: LocalizedError, Equatable {
     case notReadable
     case noEvents
-    case missingTitle(row: Int)
-    case missingDate(row: Int, title: String)
-    case badDate(row: Int, title: String, value: String)
-    case badDuration(row: Int, title: String, value: String)
-    case badWeight(row: Int, title: String, value: String)
-    case badCategory(row: Int, title: String, value: String)
+    case missingColumns
+    case missingTitle(at: Place)
+    case missingDate(at: Place, title: String)
+    case badDate(at: Place, title: String, value: String)
+    case badDuration(at: Place, title: String, value: String)
+    case badWeight(at: Place, title: String, value: String)
+    case badCategory(at: Place, title: String, value: String)
 
     public var errorDescription: String? {
         switch self {
         case .notReadable:
-            "That doesn't look like a lifeline file. It should be JSON with a list called \"events\"."
+            "That doesn't look like a lifeline file. It should be JSON with a list called \"events\", or a spreadsheet with a row of column names at the top."
         case .noEvents:
             "The file has no events in it."
-        case .missingTitle(let row):
-            "Event \(row) has no title."
-        case .missingDate(let row, let title):
-            "\"\(title)\" (event \(row)) has no start date."
-        case .badDate(let row, let title, let value):
-            "\"\(title)\" (event \(row)) has a date I can't read: \"\(value)\". Write it as 1985-06-14, or 1985-06-14 04:12."
-        case .badDuration(let row, let title, let value):
-            "\"\(title)\" (event \(row)) has a length I can't read: \"\(value)\". Write it as 90 minutes, 2 hours, or 16 days."
-        case .badWeight(let row, let title, let value):
-            "\"\(title)\" (event \(row)) has an unknown size: \"\(value)\". Use everyday, worth remembering, notable, or milestone."
-        case .badCategory(let row, let title, let value):
-            "\"\(title)\" (event \(row)) has an unknown category: \"\(value)\". Use \(Category.allCases.map(\.rawValue).joined(separator: ", "))."
+        case .missingColumns:
+            "The first row needs to name the columns, and two of them must be called title and start."
+        case .missingTitle(let at):
+            "There is no title in \(at.described)."
+        case .missingDate(let at, let title):
+            "\"\(title)\" (\(at.described)) has no start date."
+        case .badDate(let at, let title, let value):
+            "\"\(title)\" (\(at.described)) has a date I can't read: \"\(value)\". Write it as 1985-06-14, or 1985-06-14 04:12."
+        case .badDuration(let at, let title, let value):
+            "\"\(title)\" (\(at.described)) has a length I can't read: \"\(value)\". Write it as 90 minutes, 2 hours, or 16 days."
+        case .badWeight(let at, let title, let value):
+            "\"\(title)\" (\(at.described)) has an unknown size: \"\(value)\". Use everyday, worth remembering, notable, or milestone."
+        case .badCategory(let at, let title, let value):
+            "\"\(title)\" (\(at.described)) has an unknown category: \"\(value)\". Use \(Category.allCases.map(\.rawValue).joined(separator: ", "))."
         }
     }
 }
@@ -136,7 +153,14 @@ public struct LifelineDocument {
 
     // MARK: - Reading
 
+    /// Works out which kind of file this is and reads it.
     public func lifeline(from text: String) throws -> Lifeline {
+        let start = text.trimmingCharacters(in: .whitespacesAndNewlines).first
+        if start == "{" || start == "[" { return try lifeline(fromJSON: text) }
+        return try lifeline(fromCSV: text)
+    }
+
+    public func lifeline(fromJSON text: String) throws -> Lifeline {
         guard let data = text.data(using: .utf8),
               let top = try? JSONSerialization.jsonObject(with: data)
         else { throw LifelineDocumentError.notReadable }
@@ -156,21 +180,23 @@ public struct LifelineDocument {
 
         var events: [Event] = []
         for (index, row) in rows.enumerated() {
-            events.append(try event(from: row, row: index + 1))
+            events.append(try event(from: row, at: .event(index + 1)))
         }
         return Lifeline(events: events)
     }
 
-    private func event(from row: [String: Any], row number: Int) throws -> Event {
+    /// The one place a field becomes a value, shared by both formats so they
+    /// cannot drift apart in what they accept.
+    func event(from row: [String: Any], at place: Place) throws -> Event {
         let title = (row["title"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let title, !title.isEmpty else { throw LifelineDocumentError.missingTitle(row: number) }
+        guard let title, !title.isEmpty else { throw LifelineDocumentError.missingTitle(at: place) }
 
         guard let rawStart = row["start"] ?? row["date"] else {
-            throw LifelineDocumentError.missingDate(row: number, title: title)
+            throw LifelineDocumentError.missingDate(at: place, title: title)
         }
         let startText = String(describing: rawStart)
         guard let start = date(from: startText) else {
-            throw LifelineDocumentError.badDate(row: number, title: title, value: startText)
+            throw LifelineDocumentError.badDate(at: place, title: title, value: startText)
         }
 
         var duration: TimeInterval = 0
@@ -179,7 +205,7 @@ public struct LifelineDocument {
                 duration = seconds.doubleValue
             } else if let spelled = raw as? String {
                 guard let parsed = self.duration(from: spelled) else {
-                    throw LifelineDocumentError.badDuration(row: number, title: title, value: spelled)
+                    throw LifelineDocumentError.badDuration(at: place, title: title, value: spelled)
                 }
                 duration = parsed
             }
@@ -191,7 +217,7 @@ public struct LifelineDocument {
                 weight = parsed
             } else if let word = raw as? String {
                 guard let parsed = Weight(slug: word) else {
-                    throw LifelineDocumentError.badWeight(row: number, title: title, value: word)
+                    throw LifelineDocumentError.badWeight(at: place, title: title, value: word)
                 }
                 weight = parsed
             }
@@ -200,7 +226,7 @@ public struct LifelineDocument {
         var category = Category.life
         if let word = row["category"] as? String, !word.isEmpty {
             guard let parsed = Category(rawValue: word.lowercased().trimmingCharacters(in: .whitespaces))
-            else { throw LifelineDocumentError.badCategory(row: number, title: title, value: word) }
+            else { throw LifelineDocumentError.badCategory(at: place, title: title, value: word) }
             category = parsed
         }
 

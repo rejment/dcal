@@ -114,7 +114,7 @@ private var document: LifelineDocument { LifelineDocument(calendar: Fixture.cale
 
 @Test func mistakesSayWhichEventAndWhatToDoAboutIt() {
     func failure(_ text: String) -> LifelineDocumentError? {
-        do { _ = try document.lifeline(from: text); return nil }
+        do { _ = try document.lifeline(fromJSON: text); return nil }
         catch let error as LifelineDocumentError { return error }
         catch { return nil }
     }
@@ -123,24 +123,24 @@ private var document: LifelineDocument { LifelineDocument(calendar: Fixture.cale
     #expect(failure("{ \"events\": [] }") == .noEvents)
     #expect(failure("""
     { "events": [ { "start": "2020-01-01" } ] }
-    """) == .missingTitle(row: 1))
+    """) == .missingTitle(at: .event(1)))
     #expect(failure("""
     { "events": [ { "title": "Born", "start": "1985-06-14" },
                   { "title": "School", "start": "14 juni 1992" } ] }
-    """) == .badDate(row: 2, title: "School", value: "14 juni 1992"))
+    """) == .badDate(at: .event(2), title: "School", value: "14 juni 1992"))
     #expect(failure("""
     { "events": [ { "title": "Japan", "start": "2016-04-02", "lasts": "a fortnight" } ] }
-    """) == .badDuration(row: 1, title: "Japan", value: "a fortnight"))
+    """) == .badDuration(at: .event(1), title: "Japan", value: "a fortnight"))
     #expect(failure("""
     { "events": [ { "title": "Born", "start": "1985-06-14", "weight": "huge" } ] }
-    """) == .badWeight(row: 1, title: "Born", value: "huge"))
+    """) == .badWeight(at: .event(1), title: "Born", value: "huge"))
     #expect(failure("""
     { "events": [ { "title": "Born", "start": "1985-06-14", "category": "birthday" } ] }
-    """) == .badCategory(row: 1, title: "Born", value: "birthday"))
+    """) == .badCategory(at: .event(1), title: "Born", value: "birthday"))
 
     // And the message actually tells you what to type instead.
     let message = LifelineDocumentError
-        .badDate(row: 2, title: "School", value: "14 juni 1992").errorDescription ?? ""
+        .badDate(at: .event(2), title: "School", value: "14 juni 1992").errorDescription ?? ""
     #expect(message.contains("School"))
     #expect(message.contains("1985-06-14"))
 }

@@ -80,8 +80,51 @@ public struct LifelineStore: Sendable {
         return try Self.decoder.decode(Lifeline.self, from: data)
     }
 
+    /// What happened when the app tried to pick up where it left off.
+    public enum Load: Equatable, Sendable {
+        case nothingSaved
+        case loaded(Lifeline)
+        /// There was a file and it could not be read. It has been moved to
+        /// `keptAt` rather than written over.
+        case unreadable(keptAt: URL)
+    }
+
+    /// Reading on launch, without the one behaviour that could lose a life:
+    /// treating "I couldn't read this" as "there was nothing here" and then
+    /// saving over it. A file that fails to decode is moved aside under a
+    /// dated name, so the bytes survive whatever went wrong - a half-written
+    /// save, a shape this version no longer understands - and can still be
+    /// opened through Import, which reads the store format too.
+    public func loadOrSalvage(salvageInto directory: URL? = nil) -> Load {
+        let manager = FileManager.default
+        guard manager.fileExists(atPath: url.path) else { return .nothingSaved }
+        if let lifeline = try? load(), !lifeline.events.isEmpty { return .loaded(lifeline) }
+
+        let stamp = ISO8601DateFormatter.salvageStamp.string(from: Date())
+        let home = directory ?? url.deletingLastPathComponent()
+        let aside = home.appendingPathComponent("dcal-lifeline-unreadable-\(stamp).json")
+        do {
+            try manager.createDirectory(at: home, withIntermediateDirectories: true)
+            try manager.moveItem(at: url, to: aside)
+        } catch {
+            // Even the rescue failed. Leave the file exactly where it is -
+            // still better than overwriting it.
+            return .unreadable(keptAt: url)
+        }
+        return .unreadable(keptAt: aside)
+    }
+
+
     public func save(_ lifeline: Lifeline) throws {
         let data = try Self.encoder.encode(lifeline)
         try data.write(to: url, options: .atomic)
     }
+}
+
+extension ISO8601DateFormatter {
+    static let salvageStamp: ISO8601DateFormatter = {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withYear, .withMonth, .withDay, .withDashSeparatorInDate]
+        return formatter
+    }()
 }

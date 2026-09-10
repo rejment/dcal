@@ -81,3 +81,69 @@ import Testing
     #expect(reloaded == original)
     #expect(reloaded?.events.count == original.events.count)
 }
+
+// MARK: - A bad file must never cost you your life
+
+private func scratchStore() -> (LifelineStore, URL) {
+    let directory = URL(fileURLWithPath: NSTemporaryDirectory())
+        .appendingPathComponent(UUID().uuidString)
+    try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    return (LifelineStore(url: directory.appendingPathComponent("lifeline.json")), directory)
+}
+
+@Test func afirstLaunchHasNothingSaved() {
+    let (store, directory) = scratchStore()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    #expect(store.loadOrSalvage() == .nothingSaved)
+}
+
+@Test func aGoodFileIsSimplyLoaded() throws {
+    let (store, directory) = scratchStore()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let saved = SampleLifeline.make(now: Fixture.date(2026, 9, 10), calendar: Fixture.calendar)
+    try store.save(saved)
+    #expect(store.loadOrSalvage() == .loaded(saved))
+}
+
+@Test func anUnreadableFileIsMovedAsideRatherThanOverwritten() throws {
+    let (store, directory) = scratchStore()
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    let precious = Data("{ this is not the shape it used to be }".utf8)
+    try precious.write(to: store.url)
+
+    guard case .unreadable(let keptAt) = store.loadOrSalvage() else {
+        Issue.record("a file that cannot be read must be reported, not ignored")
+        return
+    }
+    // The original bytes survive, under a new name, and the store path is
+    // clear so the next save cannot collide with it.
+    #expect(FileManager.default.contents(atPath: keptAt.path) == precious)
+    #expect(!FileManager.default.fileExists(atPath: store.url.path))
+    #expect(keptAt.lastPathComponent.hasPrefix("dcal-lifeline-unreadable-"))
+}
+
+@Test func aRescuedFileCanBePutSomewhereReachable() throws {
+    let (store, directory) = scratchStore()
+    let visible = directory.appendingPathComponent("Documents")
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    try Data("garbage".utf8).write(to: store.url)
+    guard case .unreadable(let keptAt) = store.loadOrSalvage(salvageInto: visible) else {
+        Issue.record("expected the file to be salvaged")
+        return
+    }
+    #expect(keptAt.deletingLastPathComponent().lastPathComponent == "Documents")
+}
+
+@Test func anEmptyFileCountsAsUnreadableToo() throws {
+    let (store, directory) = scratchStore()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    // A save interrupted halfway leaves nothing useful behind, and starting
+    // over on top of it would throw away whatever could still be recovered.
+    try store.save(Lifeline(events: []))
+    guard case .unreadable = store.loadOrSalvage() else {
+        Issue.record("an empty lifeline should not be mistaken for a good one")
+        return
+    }
+}

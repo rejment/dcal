@@ -129,6 +129,22 @@ or a spreadsheet row, whichever you're looking at:
 > 1985-06-14, or 1985-06-14 04:12.
 
 
+## What happens to your data
+
+Updating the app — through TestFlight or the App Store — leaves it alone. iOS
+keeps the app's container across updates, so the saved lifeline survives.
+Deleting the app removes it; *Offload App* does not.
+
+If the saved file ever fails to read, the app **does not write over it**. It is
+moved aside as `dcal-lifeline-unreadable-<date>.json` into the app's Documents
+folder, which shows up under *On My iPhone → DCAL* in Files, and the app says
+so on launch instead of quietly carrying on with the sample life. Import reads
+the store format too, so a rescued file can usually be opened straight back up.
+
+That is worth stating because the first version got it wrong: a failed read
+looked exactly like an empty one, and the next save replaced a real life with
+a made-up one.
+
 ## Not done yet
 
 Reading your real calendar (EventKit) is the obvious next step and the thing

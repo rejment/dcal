@@ -42,14 +42,44 @@ public final class TimelineModel {
         var elapsed: Double = 0
     }
 
+    /// Set when the saved lifeline could not be read on launch. The old file
+    /// is kept, and the app says so rather than quietly carrying on with a
+    /// made-up life.
+    public private(set) var startupProblem: String?
+
     public init(store: LifelineStore? = try? LifelineStore(url: LifelineStore.defaultURL())) {
         self.store = store
         let calendar = TickCalendar.standard().calendar
-        let loaded = (try? store?.load()) ?? nil
-        lifeline = loaded ?? SampleLifeline.make(calendar: calendar)
         centreEpoch = Date().timeIntervalSince1970
         logScale = log(TimeScale.pointsPerSecond(height: 800, span: 15 * 3600))
-        if loaded == nil { persist() }
+
+        // Somewhere the Files app can reach, so a rescued file is not stranded
+        // inside the container.
+        let visible = try? FileManager.default.url(
+            for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true
+        )
+
+        switch store?.loadOrSalvage(salvageInto: visible) ?? .nothingSaved {
+        case .loaded(let saved):
+            lifeline = saved
+        case .nothingSaved:
+            lifeline = SampleLifeline.make(calendar: calendar)
+            persist()
+        case .unreadable(let keptAt):
+            lifeline = SampleLifeline.make(calendar: calendar)
+            startupProblem = """
+                Your saved lifeline couldn't be read, so this is the sample one \
+                instead. Nothing was deleted - the old file is still on this \
+                phone as \(keptAt.lastPathComponent), under DCAL in the Files \
+                app. Open it from Backup to try recovering it.
+                """
+            // Deliberately no save here. Writing after a failed read is what
+            // would have destroyed the thing we are trying to protect.
+        }
+    }
+
+    func acknowledgeStartupProblem() {
+        startupProblem = nil
     }
 
     // MARK: - Reading the view

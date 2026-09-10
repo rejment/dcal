@@ -57,6 +57,12 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UIUserInterfaceStyle: Dark
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # The app's Documents folder shows up under "On My iPhone → DCAL" in
+        # Files. A lifeline that failed to load is moved there rather than
+        # written over, and this is what makes it reachable afterwards -
+        # otherwise the rescue is sealed inside the container.
+        INFOPLIST_KEY_UIFileSharingEnabled: true
+        INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: true
         # Only Apple's standard TLS - answers the export compliance question
         # once, instead of at every single upload.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false

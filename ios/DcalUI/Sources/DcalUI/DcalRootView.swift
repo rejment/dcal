@@ -128,6 +128,17 @@ public struct DcalRootView: View {
         .onPreferenceChange(ChromeBottomKey.self) { edge in
             Task { @MainActor in model.chromeBottomY = edge - 8 }
         }
+        .alert(
+            "Couldn't read your saved lifeline",
+            isPresented: Binding(
+                get: { model.startupProblem != nil },
+                set: { if !$0 { model.acknowledgeStartupProblem() } }
+            )
+        ) {
+            Button("OK") { model.acknowledgeStartupProblem() }
+        } message: {
+            Text(model.startupProblem ?? "")
+        }
         .sheet(item: $sheet) { active in
             switch active {
             case .detail(let event):

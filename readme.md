@@ -153,6 +153,12 @@ life into one long holiday — and it's the location where the most *days* were
 spent, not the most photos, because three weeks abroad easily out-shoots a
 year at home.
 
+Each row carries a few thumbnails — hearted photos first, then spread across
+the span. "40 photos, a Tuesday in 2011" is not a memory; four pictures of it
+usually are. A segmented control chooses how far down the ranking to read,
+because no threshold can tell a wedding from a wet Tuesday and pretending
+otherwise is how the first version returned 400 days and told you nothing.
+
 **Nothing is added on its own.** A day with forty photos was a wedding or a
 flooded kitchen, and only you know which. Tapping a row opens the ordinary
 event editor with the dates, length and category filled in, and you supply the

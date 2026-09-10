@@ -13,7 +13,8 @@ struct PhotoScanSheet: View {
     let onClose: () -> Void
 
     @State private var access = PhotoLibrary.access
-    @State private var findings: [PhotoFinding] = []
+    @State private var allFindings: [PhotoFinding] = []
+    @State private var sensitivity: PhotoScan.Sensitivity = .highlights
     @State private var names: [String: String] = [:]
     @State private var added: Set<String> = []
     @State private var working = false
@@ -66,7 +67,7 @@ struct PhotoScanSheet: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else if !hasScanned {
                 invitation
-            } else if findings.isEmpty {
+            } else if allFindings.isEmpty {
                 message(
                     "Nothing stood out",
                     "Either the photos have no dates on them, or no stretch looked "
@@ -85,13 +86,13 @@ struct PhotoScanSheet: View {
                 .foregroundStyle(Theme.chalk)
 
             Text("""
-            This looks at the date and place of each photo — never the picture \
-            itself, and nothing leaves the phone. It picks out the days that \
-            look different from your ordinary ones: time spent away from home, \
+            This looks at the date and place of each photo to pick out the days \
+            that stand out from your ordinary ones: time spent away from home, \
             days you took far more photos than usual, days holding photos you \
             hearted, and the first photos after months of quiet.
 
-            You choose what to keep, and you name it.
+            Nothing is uploaded. You'll see a few thumbnails of each day, and \
+            you choose what to keep and what to call it.
             """)
             .font(.system(size: 15))
             .foregroundStyle(.secondary)
@@ -107,6 +108,10 @@ struct PhotoScanSheet: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    private var findings: [PhotoFinding] {
+        PhotoScan.top(allFindings, sensitivity)
+    }
+
     private var list: some View {
         List {
             if access == .limited {
@@ -115,6 +120,18 @@ struct PhotoScanSheet: View {
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
+            }
+            Section {
+                Picker("How much", selection: $sensitivity) {
+                    ForEach(PhotoScan.Sensitivity.allCases) { level in
+                        Text(level.label).tag(level)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+            } footer: {
+                Text("Ranked by how much they stand out. Widen this if something "
+                    + "you remember is missing.")
             }
             Section {
                 ForEach(findings) { finding in
@@ -148,6 +165,11 @@ struct PhotoScanSheet: View {
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
+
+                if !finding.sampleIdentifiers.isEmpty {
+                    PhotoStrip(identifiers: finding.sampleIdentifiers)
+                        .padding(.top, 4)
+                }
 
                 HStack(spacing: 5) {
                     ForEach(finding.reasons, id: \.self) { reason in
@@ -203,7 +225,7 @@ struct PhotoScanSheet: View {
         working = true
         let moments = await PhotoLibrary.moments()
         let found = PhotoScan.findings(in: moments, calendar: model.calendar)
-        findings = found
+        allFindings = found
         hasScanned = true
         working = false
 

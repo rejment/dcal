@@ -51,11 +51,20 @@ public struct PhotoMoment: Equatable, Sendable {
     public let date: Date
     public let coordinate: Coordinate?
     public let isFavourite: Bool
+    /// The library's own id, so a thumbnail can be fetched later. Still no
+    /// image data here - this is a string, not a picture.
+    public let identifier: String?
 
-    public init(date: Date, coordinate: Coordinate? = nil, isFavourite: Bool = false) {
+    public init(
+        date: Date,
+        coordinate: Coordinate? = nil,
+        isFavourite: Bool = false,
+        identifier: String? = nil
+    ) {
         self.date = date
         self.coordinate = coordinate
         self.isFavourite = isFavourite
+        self.identifier = identifier
     }
 }
 
@@ -82,6 +91,9 @@ public struct PhotoFinding: Identifiable, Equatable, Sendable {
     public let favouriteCount: Int
     public let reasons: [Reason]
     public let coordinate: Coordinate?
+    /// A few photos that stand for the day, hearted ones first. Without these
+    /// the list asks you to judge "40 photos, a Tuesday in 2011" from nothing.
+    public let sampleIdentifiers: [String]
     public let score: Double
 
     public var isTrip: Bool { reasons.contains(.away) && dayCount > 1 }
@@ -112,6 +124,37 @@ public struct PhotoFinding: Identifiable, Equatable, Sendable {
 }
 
 public enum PhotoScan {
+    /// How much of a life to pull out. The signals cannot tell a wedding from
+    /// a wet Tuesday, so rather than pretend a threshold is objective, this
+    /// ranks everything and lets the reader say how far down to go.
+    public enum Sensitivity: String, CaseIterable, Sendable, Identifiable {
+        case highlights, balanced, everything
+
+        public var id: String { rawValue }
+
+        public var label: String {
+            switch self {
+            case .highlights: "The big things"
+            case .balanced: "A fair amount"
+            case .everything: "Everything"
+            }
+        }
+
+        public var limit: Int {
+            switch self {
+            case .highlights: 40
+            case .balanced: 150
+            case .everything: 600
+            }
+        }
+    }
+
+    /// The highest scoring findings, back in date order for reading.
+    public static func top(_ findings: [PhotoFinding], _ sensitivity: Sensitivity) -> [PhotoFinding] {
+        Array(findings.sorted { $0.score > $1.score }.prefix(sensitivity.limit))
+            .sorted { $0.start < $1.start }
+    }
+
     /// Far enough that you went somewhere, rather than across town.
     public static let awayMetres = 100_000.0
     /// Days with no photos between two away days still belong to the trip.
@@ -133,6 +176,7 @@ public enum PhotoScan {
             var favourites = 0
             var latitudes: [Double] = []
             var longitudes: [Double] = []
+            var samples: [(id: String, favourite: Bool)] = []
 
             var coordinate: Coordinate? {
                 guard !latitudes.isEmpty else { return nil }
@@ -152,6 +196,9 @@ public enum PhotoScan {
             if let where_ = moment.coordinate {
                 day.latitudes.append(where_.latitude)
                 day.longitudes.append(where_.longitude)
+            }
+            if let id = moment.identifier, day.samples.count < 12 {
+                day.samples.append((id: id, favourite: moment.isFavourite))
             }
             byDay[key] = day
         }
@@ -176,8 +223,30 @@ public enum PhotoScan {
                 .value
         }
 
-        // --- how many photos a normal day holds, for this person ---
-        let baseline = max(3.0, median(days.map { Double($0.count) }) * 3)
+        // --- which days were spent somewhere else ---
+        var awayDays: Set<Date> = []
+        for day in days {
+            let year = calendar.component(.year, from: day.date)
+            if let here = day.coordinate, let base = home(inYear: year),
+               here.distance(to: base) > awayMetres {
+                awayDays.insert(day.date)
+            }
+        }
+
+        // --- how many photos a normal day at home holds, for this person ---
+        // Days away are left out of this on purpose. They are already their
+        // own signal, and counting them here lets one long holiday raise the
+        // bar so far that a wedding at home no longer clears it.
+        //
+        // Times five and never fewer than a dozen. Times three caught a
+        // quarter of every year on a phone that takes three photos on an
+        // ordinary day, which is how the first version found four hundred
+        // "interesting" days and told you nothing.
+        let homeCounts = days
+            .filter { !awayDays.contains($0.date) }
+            .map { Double($0.count) }
+            .sorted()
+        let baseline = max(12.0, median(homeCounts) * 5, percentile(homeCounts, 0.97))
 
         // --- classify each day ---
         var reasonsByDay: [Date: Set<PhotoFinding.Reason>] = [:]
@@ -185,15 +254,14 @@ public enum PhotoScan {
         for day in days {
             var reasons: Set<PhotoFinding.Reason> = []
 
-            let year = calendar.component(.year, from: day.date)
-            if let here = day.coordinate, let base = home(inYear: year),
-               here.distance(to: base) > awayMetres {
+            if awayDays.contains(day.date) {
                 reasons.insert(.away)
             }
-            if Double(day.count) >= max(8, baseline) {
+            if Double(day.count) >= baseline {
                 reasons.insert(.busy)
             }
-            if day.favourites >= 2 {
+            // Three, not two. Two hearts on a day is a nice pair of photos.
+            if day.favourites >= 3 {
                 reasons.insert(.favourite)
             }
             if let previous,
@@ -249,17 +317,31 @@ public enum PhotoScan {
                 favouriteCount: favourites,
                 reasons: PhotoFinding.Reason.allCases.filter { reasons.contains($0) },
                 coordinate: members.compactMap(\.coordinate).first,
+                sampleIdentifiers: representatives(of: members.flatMap(\.samples)),
                 score: score(reasons: reasons, days: spanDays, photos: photos,
                              favourites: favourites, baseline: baseline)
             ))
         }
 
-        return Array(
-            findings
-                .sorted { $0.score > $1.score }
-                .prefix(limit)
-        )
-        .sorted { $0.start < $1.start }
+        return Array(findings.sorted { $0.score > $1.score }.prefix(limit))
+            .sorted { $0.start < $1.start }
+    }
+
+    /// Hearted first, then spread across the span rather than the first four
+    /// of the first morning.
+    static func representatives(of samples: [(id: String, favourite: Bool)], count: Int = 4) -> [String] {
+        let hearted = samples.filter(\.favourite).map(\.id)
+        var chosen = Array(hearted.prefix(count))
+        guard chosen.count < count else { return chosen }
+
+        let rest = samples.map(\.id).filter { !chosen.contains($0) }
+        guard !rest.isEmpty else { return chosen }
+        let wanted = count - chosen.count
+        let step = max(1, rest.count / wanted)
+        for index in stride(from: 0, to: rest.count, by: step) where chosen.count < count {
+            chosen.append(rest[index])
+        }
+        return chosen
     }
 
     static func score(
@@ -293,6 +375,12 @@ public enum PhotoScan {
             longitude: median(biggest.map(\.longitude))
         )
     }
+}
+
+func percentile(_ sorted: [Double], _ fraction: Double) -> Double {
+    guard !sorted.isEmpty else { return 0 }
+    let index = Int((Double(sorted.count - 1) * fraction).rounded())
+    return sorted[max(0, min(sorted.count - 1, index))]
 }
 
 func median(_ values: [Double]) -> Double {

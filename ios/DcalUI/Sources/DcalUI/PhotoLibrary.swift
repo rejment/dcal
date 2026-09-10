@@ -59,7 +59,8 @@ enum PhotoLibrary {
                             longitude: $0.coordinate.longitude
                         )
                     },
-                    isFavourite: asset.isFavorite
+                    isFavourite: asset.isFavorite,
+                    identifier: asset.localIdentifier
                 ))
             }
             return out

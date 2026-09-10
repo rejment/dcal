@@ -172,3 +172,109 @@ private func ordinaryYear(_ year: Int) -> [PhotoMoment] {
         in: [PhotoMoment(date: Fixture.date(2020, 1, 1))], calendar: Fixture.calendar
     ).isEmpty)
 }
+
+// MARK: - Not drowning the reader
+
+/// What a phone actually produces: a handful of photos most days for years.
+private func phoneLibrary(years: ClosedRange<Int>) -> [PhotoMoment] {
+    var out: [PhotoMoment] = []
+    for year in years {
+        for dayOfYear in 0..<360 {
+            let day = Fixture.calendar.startOfDay(
+                for: Fixture.date(year, 1, 1).addingTimeInterval(Double(dayOfYear) * 86400))
+            // Three or four on a normal day, which is what caught a quarter of
+            // every year when "busy" meant three times the median.
+            out += moments(day: day, count: 3 + (dayOfYear % 2))
+        }
+    }
+    return out
+}
+
+@Test func anOrdinaryPhoneLibraryDoesNotFillTheList() {
+    let found = PhotoScan.findings(in: phoneLibrary(years: 2015...2020), calendar: Fixture.calendar)
+    // Six years of daily photographs, nothing unusual in them. The first
+    // version reported hundreds of these.
+    #expect(found.count < 10)
+}
+
+@Test func theRealThingsStillSurfaceOutOfAllThatNoise() {
+    var library = phoneLibrary(years: 2015...2020)
+    // A wedding at home, and two weeks away.
+    library += moments(day: Fixture.date(2017, 6, 24), count: 90)
+    for offset in 0..<14 {
+        let day = Fixture.date(2019, 8, 3).addingTimeInterval(Double(offset) * 86400)
+        library += moments(day: day, count: 40, at: kyoto)
+    }
+    let found = PhotoScan.findings(in: library, calendar: Fixture.calendar)
+
+    #expect(found.contains { $0.start == Fixture.date(2017, 6, 24) })
+    #expect(found.contains { $0.isTrip && $0.dayCount == 14 })
+    // And the trip outranks the wedding, which outranks everything else.
+    #expect(found.max { $0.score < $1.score }?.isTrip == true)
+}
+
+@Test func aLongHolidayDoesNotHideAWeddingAtHome() {
+    // Days away are excluded from the baseline. Left in, a fortnight of heavy
+    // holiday photography raises the bar above the wedding.
+    var library = phoneLibrary(years: 2019...2019)
+    library += moments(day: Fixture.date(2019, 6, 24), count: 45)
+    for offset in 0..<14 {
+        let day = Fixture.date(2019, 8, 3).addingTimeInterval(Double(offset) * 86400)
+        library += moments(day: day, count: 120, at: kyoto)
+    }
+    let found = PhotoScan.findings(in: library, calendar: Fixture.calendar)
+    #expect(found.contains { $0.start == Fixture.date(2019, 6, 24) })
+}
+
+@Test func howMuchToShowIsTheReadersChoice() {
+    var library = phoneLibrary(years: 2010...2020)
+    for year in 2010...2020 {
+        for month in [3, 7, 11] {
+            for offset in 0..<6 {
+                let day = Fixture.date(year, month, 1).addingTimeInterval(Double(offset) * 86400)
+                library += moments(day: day, count: 30, at: kyoto)
+            }
+        }
+    }
+    let all = PhotoScan.findings(in: library, calendar: Fixture.calendar)
+    #expect(all.count > 20)
+
+    let big = PhotoScan.top(all, .highlights)
+    let fair = PhotoScan.top(all, .balanced)
+    #expect(big.count <= 40)
+    #expect(fair.count >= big.count)
+    // Narrowing keeps the best, and everything stays in date order to read.
+    #expect(big.map(\.start) == big.map(\.start).sorted())
+    let bestScore = all.map(\.score).max() ?? 0
+    #expect(big.contains { $0.score == bestScore })
+}
+
+@Test func theSamplePhotosLeanOnTheOnesYouHearted() {
+    let samples =
+        (0..<20).map { (id: "plain-\($0)", favourite: false) }
+        + [(id: "hearted-a", favourite: true), (id: "hearted-b", favourite: true)]
+
+    let picked = PhotoScan.representatives(of: samples)
+    #expect(picked.count == 4)
+    #expect(picked.prefix(2) == ["hearted-a", "hearted-b"])
+    // The rest spread across the day rather than the first two of the morning.
+    #expect(picked[2] != "plain-1")
+    #expect(Set(picked).count == 4)
+}
+
+@Test func aDayCarriesPhotosToLookAt() {
+    var library = ordinaryYear(2024)
+    let day = Fixture.date(2024, 5, 18)
+    library += (0..<40).map { index in
+        PhotoMoment(
+            date: day.addingTimeInterval(Double(index) * 600 + 36000),
+            coordinate: stockholm,
+            isFavourite: index < 2,
+            identifier: "asset-\(index)"
+        )
+    }
+    let found = PhotoScan.findings(in: library, calendar: Fixture.calendar)
+    let busy = found.first { $0.start == day }
+    #expect(busy?.sampleIdentifiers.isEmpty == false)
+    #expect(busy?.sampleIdentifiers.count ?? 0 <= 4)
+}

@@ -46,13 +46,14 @@ struct Masthead: View {
             .padding(.top, 14)
             .padding(.bottom, 34)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
+            .background {
                 LinearGradient(
                     colors: [Theme.ground.opacity(0.94), Theme.ground.opacity(0.75), Theme.ground.opacity(0)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
-            )
+                .ignoresSafeArea(edges: .top)
+            }
             .allowsHitTesting(false)
 
             Button(action: onMenu) {
@@ -110,13 +111,14 @@ struct ControlRail: View {
         }
         .padding(.top, 26)
         .padding(.bottom, 8)
-        .background(
+        .background {
             LinearGradient(
                 colors: [Theme.ground.opacity(0), Theme.ground.opacity(0.75), Theme.ground.opacity(0.94)],
                 startPoint: .top,
                 endPoint: .bottom
             )
+            .ignoresSafeArea(edges: .bottom)
             .allowsHitTesting(false)
-        )
+        }
     }
 }

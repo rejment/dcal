@@ -1,5 +1,15 @@
 // The whole screen: a canvas, a transparent layer of gesture recognisers,
 // and two pieces of floating chrome.
+//
+// The canvas ignores the safe area so the painted ground reaches the edges of
+// the phone; the chrome does not, so it sits below the status bar and above
+// the home indicator. Only the chrome's background gradients reach past it.
+//
+// Where the ruler has to stop is measured rather than assumed. Asking a
+// GeometryReader for safeAreaInsets does not work here - once .ignoresSafeArea
+// is applied there is no safe area left for it to report, and it answers zero -
+// and a guessed height would be wrong anyway the moment Dynamic Type or a
+// longer date makes the header taller.
 
 import DcalKit
 import SwiftUI
@@ -18,6 +28,36 @@ enum ActiveSheet: Identifiable {
     }
 }
 
+/// Where the masthead ends and where the control rail begins, both in the
+/// canvas's own coordinates - which are the window's, since it ignores the
+/// safe area.
+private struct ChromeTopKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+private struct ChromeBottomKey: PreferenceKey {
+    static let defaultValue: CGFloat = .greatestFiniteMagnitude
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = min(value, nextValue())
+    }
+}
+
+private struct MeasureEdge<Key: PreferenceKey>: ViewModifier where Key.Value == CGFloat {
+    let key: Key.Type
+    let edge: (CGRect) -> CGFloat
+
+    func body(content: Content) -> some View {
+        content.background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: key, value: edge(proxy.frame(in: .global)))
+            }
+        )
+    }
+}
+
 public struct DcalRootView: View {
     @State private var model = TimelineModel()
     @State private var sheet: ActiveSheet?
@@ -25,65 +65,69 @@ public struct DcalRootView: View {
     public init() {}
 
     public var body: some View {
-        GeometryReader { proxy in
-            let size = proxy.size
-            let insets = proxy.safeAreaInsets
-            let layout = model.layout(for: size)
-            let whereabouts = Whereabouts.describe(scale: model.scale, calendar: model.calendar)
+        ZStack {
+            GeometryReader { proxy in
+                let size = proxy.size
+                let layout = model.layout(for: size)
 
-            ZStack {
-                TimelineCanvas(layout: layout)
-                    .accessibilityElement()
-                    .accessibilityLabel("Timeline")
-                    .accessibilityValue("\(whereabouts.headline), showing \(whereabouts.spanWords)")
-                    .accessibilityHint("Swipe up or down to zoom")
-                    .accessibilityAdjustableAction { direction in
-                        model.zoom(by: direction == .increment ? 1.8 : 1 / 1.8, around: size.height / 2)
-                    }
-
-                TimelineGestures(
-                    model: model,
-                    onTap: { point in
-                        if let event = model.layout(for: size).event(at: point) {
-                            sheet = .detail(event)
+                ZStack {
+                    TimelineCanvas(layout: layout)
+                        .accessibilityElement()
+                        .accessibilityLabel("Timeline")
+                        .accessibilityValue(accessibilityValue)
+                        .accessibilityHint("Swipe up or down to zoom")
+                        .accessibilityAdjustableAction { direction in
+                            model.zoom(
+                                by: direction == .increment ? 1.8 : 1 / 1.8,
+                                around: size.height / 2
+                            )
                         }
-                    },
-                    onLongPress: { point in
-                        sheet = .edit(newEvent(at: model.scale.date(atY: point.y)), isNew: true)
-                    }
-                )
 
-                VStack(spacing: 0) {
-                    Masthead(
-                        whereabouts: whereabouts,
-                        age: model.age(at: model.scale.centre),
-                        onMenu: { sheet = .menu }
+                    TimelineGestures(
+                        model: model,
+                        onTap: { point in
+                            if let event = model.layout(for: size).event(at: point) {
+                                sheet = .detail(event)
+                            }
+                        },
+                        onLongPress: { point in
+                            sheet = .edit(newEvent(at: model.scale.date(atY: point.y)), isNew: true)
+                        }
                     )
-                    .padding(.top, insets.top)
-                    Spacer(minLength: 0)
-                    ControlRail(
-                        active: model.activeStep,
-                        onStep: { model.go(to: $0); nudge() },
-                        onNow: { model.goToNow(); nudge() },
-                        onZoom: { model.zoom(by: $0, around: size.height / 2) },
-                        onNew: { sheet = .edit(newEvent(at: model.scale.centre), isNew: true) }
-                    )
-                    .padding(.bottom, insets.bottom)
                 }
+                .onAppear { adopt(size) }
+                .onChange(of: size) { _, updated in adopt(updated) }
             }
-            .onAppear { measure(size: size, insets: insets) }
-            .onChange(of: size) { _, updated in
-                model.size = updated
-                model.height = updated.height
-            }
-            .onChange(of: insets) { _, updated in
-                model.chromeTop = updated.top + 96
-                model.chromeBottom = updated.bottom + 112
+            .ignoresSafeArea()
+
+            VStack(spacing: 0) {
+                Masthead(
+                    whereabouts: whereabouts,
+                    age: model.age(at: model.scale.centre),
+                    onMenu: { sheet = .menu }
+                )
+                .modifier(MeasureEdge(key: ChromeTopKey.self) { $0.maxY })
+
+                Spacer(minLength: 0)
+
+                ControlRail(
+                    active: model.activeStep,
+                    onStep: { model.go(to: $0); nudge() },
+                    onNow: { model.goToNow(); nudge() },
+                    onZoom: { model.zoom(by: $0, around: model.height / 2) },
+                    onNew: { sheet = .edit(newEvent(at: model.scale.centre), isNew: true) }
+                )
+                .modifier(MeasureEdge(key: ChromeBottomKey.self) { $0.minY })
             }
         }
         .background(Theme.ground)
-        .ignoresSafeArea()
         .preferredColorScheme(.dark)
+        .onPreferenceChange(ChromeTopKey.self) { edge in
+            Task { @MainActor in model.chromeTopY = edge + 8 }
+        }
+        .onPreferenceChange(ChromeBottomKey.self) { edge in
+            Task { @MainActor in model.chromeBottomY = edge - 8 }
+        }
         .sheet(item: $sheet) { active in
             switch active {
             case .detail(let event):
@@ -132,13 +176,18 @@ public struct DcalRootView: View {
         }
     }
 
-    /// The chrome floats over the timeline, so the ruler and the labels need
-    /// to know how much of the top and bottom is spoken for.
-    private func measure(size: CGSize, insets: EdgeInsets) {
+    private var whereabouts: Whereabouts {
+        Whereabouts.describe(scale: model.scale, calendar: model.calendar)
+    }
+
+    private var accessibilityValue: String {
+        let now = whereabouts
+        return "\(now.headline), showing \(now.spanWords)"
+    }
+
+    private func adopt(_ size: CGSize) {
         model.size = size
         model.height = size.height
-        model.chromeTop = insets.top + 96
-        model.chromeBottom = insets.bottom + 112
     }
 
     /// A new thing lands where you are looking, at a sensible grain: to the

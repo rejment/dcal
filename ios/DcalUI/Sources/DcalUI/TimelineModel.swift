@@ -22,8 +22,11 @@ public final class TimelineModel {
 
     var height: CGFloat = 800
     var size: CGSize = CGSize(width: 390, height: 800)
-    var chromeTop: CGFloat = 104
-    var chromeBottom: CGFloat = 116
+    /// Measured screen positions of the floating chrome, so the ruler can
+    /// stop clear of it. Absolute rather than inset, which keeps them correct
+    /// even if they are measured before the canvas reports its height.
+    var chromeTopY: CGFloat = 104
+    var chromeBottomY: CGFloat = 690
 
     let tickCalendar = TickCalendar.standard()
     private let store: LifelineStore?
@@ -69,8 +72,8 @@ public final class TimelineModel {
                 height: size.height
             ),
             size: size,
-            chromeTop: chromeTop,
-            chromeBottom: chromeBottom,
+            chromeTop: chromeTopY,
+            chromeBottom: max(0, size.height - chromeBottomY),
             lifeline: lifeline,
             tickCalendar: tickCalendar,
             now: Date()

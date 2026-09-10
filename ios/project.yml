@@ -62,17 +62,3 @@ targets:
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
         SWIFT_VERSION: "5.10"
         TARGETED_DEVICE_FAMILY: "1"
-      configs:
-        # Archive for distribution directly. Left to itself, automatic signing
-        # builds the archive with an Apple Development certificate and only
-        # swaps in the distribution one at export - and because a CI runner is
-        # a clean machine with an empty keychain, every single build minted a
-        # new development certificate via the API. Fifteen of those and the
-        # account hits Apple's ceiling and refuses to issue any more.
-        #
-        # Cloud-managed distribution certificates are not per-machine, so
-        # signing the Release configuration with one accumulates nothing.
-        # Debug still uses development signing, which is what a local Cmd-R
-        # onto a cabled phone needs.
-        Release:
-          CODE_SIGN_IDENTITY: "Apple Distribution"

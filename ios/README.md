@@ -69,18 +69,20 @@ Prepared in advance: bundle id `com.rejment.dcal`, version 1.0, the 1024 icon,
 and the export compliance question answered in `Info.plist` (standard TLS
 only), so uploads do not stop to ask.
 
-The Release configuration signs with `Apple Distribution` rather than letting
-automatic signing pick a development certificate and swap it at export. On a
-CI runner — a clean machine with an empty keychain — that swap minted a new
-Apple Development certificate through the API on *every single build*, and
-fifteen of those is Apple's ceiling for an account, after which it refuses to
-issue any more and the archive fails. Cloud-managed distribution certificates
-are not per-machine, so nothing accumulates. Debug is untouched, which is what
-a local ⌘R onto a cabled phone needs.
+Automatic signing builds the archive with an Apple Development certificate and
+swaps in the distribution one at export. A CI runner is a clean machine with an
+empty keychain, so **every build mints a new development certificate through
+the API** — and fifteen of those is Apple's ceiling for an account, after which
+it refuses to issue more and the archive fails outright.
 
-If it ever does hit the ceiling, the certificates named "Apple Development:
-Created via API" are disposable — revoke them at developer.apple.com and the
-next build mints what it needs.
+Forcing `CODE_SIGN_IDENTITY` to `Apple Distribution` does not work: automatic
+signing rejects a manually specified identity as a conflicting setting.
+
+So this needs housekeeping. The certificates named "Apple Development: Created
+via API" are disposable — nothing installed depends on them, since TestFlight
+builds carry the distribution certificate instead. Revoke them at
+developer.apple.com when a build fails on the limit, and the next one mints
+what it needs.
 
 ## What is not verified here
 

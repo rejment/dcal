@@ -61,6 +61,10 @@ targets:
         # Files. A lifeline that failed to load is moved there rather than
         # written over, and this is what makes it reachable afterwards -
         # otherwise the rescue is sealed inside the container.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: >-
+          DCAL looks at when and where your photos were taken to suggest days
+          worth putting on your timeline. It never reads the pictures
+          themselves, and nothing leaves your phone.
         INFOPLIST_KEY_UIFileSharingEnabled: true
         INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: true
         # Only Apple's standard TLS - answers the export compliance question

@@ -201,6 +201,7 @@ struct EventEditSheet: View {
 
 struct MenuSheet: View {
     let model: TimelineModel
+    let onScanPhotos: () -> Void
     let onClose: () -> Void
 
     @State private var jumpTo: Date
@@ -212,8 +213,13 @@ struct MenuSheet: View {
     @State private var incoming: Lifeline?
     @State private var problem: String?
 
-    init(model: TimelineModel, onClose: @escaping () -> Void) {
+    init(
+        model: TimelineModel,
+        onScanPhotos: @escaping () -> Void,
+        onClose: @escaping () -> Void
+    ) {
         self.model = model
+        self.onScanPhotos = onScanPhotos
         self.onClose = onClose
         _jumpTo = State(initialValue: model.scale.centre)
     }
@@ -229,6 +235,15 @@ struct MenuSheet: View {
                     }
                 } header: {
                     Text("Jump")
+                }
+
+                Section {
+                    Button(action: onScanPhotos) {
+                        Label("Find days in my photos", systemImage: "photo.on.rectangle.angled")
+                    }
+                } footer: {
+                    Text("Picks out the days that look different from your ordinary "
+                        + "ones. Reads only dates and places, never the pictures.")
                 }
 
                 Section {

@@ -129,6 +129,39 @@ or a spreadsheet row, whichever you're looking at:
 > 1985-06-14, or 1985-06-14 04:12.
 
 
+## Finding days in your photos
+
+A calendar holds appointments; this holds the things you'd otherwise lose. The
+best record of those you already have is your photo library — every picture
+carries when it was taken and usually where.
+
+**⋯ → Find days in my photos** reads that, and only that. Three fields per
+photo: date, coordinate, and whether you hearted it. The pictures themselves
+are never decoded, nothing is uploaded, and the scan works in aeroplane mode.
+
+Four signals, because no single one is enough:
+
+| | |
+| --- | --- |
+| **Away from home** | Photos far from where you usually were *that year*, with consecutive days merged into one trip. The strongest signal, and the only one that can carry a real name — a coordinate reverse-geocodes to "Kanazawa, Japan". |
+| **A lot of photos** | Far more than a normal day for you. Catches parties, weddings, births — things photographed heavily while standing still. |
+| **Photos you hearted** | Rare and deliberate. You already decided those mattered. |
+| **First in a long while** | The first photos after months of quiet, which tends to mark something changing rather than something happening. |
+
+Home is worked out per year, so moving house doesn't turn the rest of your
+life into one long holiday — and it's the location where the most *days* were
+spent, not the most photos, because three weeks abroad easily out-shoots a
+year at home.
+
+**Nothing is added on its own.** A day with forty photos was a wedding or a
+flooded kitchen, and only you know which. Tapping a row opens the ordinary
+event editor with the dates, length and category filled in, and you supply the
+one thing the phone cannot.
+
+One caveat the app repeats on screen: dates come from the photos, so anything
+scanned in later — an old print, a screenshot of something — carries the date
+it was scanned, not the day it happened.
+
 ## What happens to your data
 
 Updating the app — through TestFlight or the App Store — leaves it alone. iOS

@@ -18,12 +18,14 @@ enum ActiveSheet: Identifiable {
     case detail(Event)
     case edit(Event, isNew: Bool)
     case menu
+    case photos
 
     var id: String {
         switch self {
         case .detail(let event): "detail-\(event.id)"
         case .edit(let event, _): "edit-\(event.id)"
         case .menu: "menu"
+        case .photos: "photos"
         }
     }
 }
@@ -169,7 +171,17 @@ public struct DcalRootView: View {
                 )
 
             case .menu:
-                MenuSheet(model: model) {
+                MenuSheet(
+                    model: model,
+                    onScanPhotos: { sheet = .photos },
+                    onClose: {
+                        sheet = nil
+                        nudge()
+                    }
+                )
+
+            case .photos:
+                PhotoScanSheet(model: model) {
                     sheet = nil
                     nudge()
                 }

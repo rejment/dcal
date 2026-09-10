@@ -9,10 +9,14 @@ struct TimelineCanvas: View {
     let layout: TimelineLayout
 
     var body: some View {
+        // No .drawingGroup() here. A Canvas already draws into one layer, and
+        // wrapping it rasterises into an offscreen buffer that snaps glyphs to
+        // its own pixel grid - so while the timeline scrolls, text steps in
+        // whole pixels against everything else moving smoothly, then settles
+        // when the redraws stop.
         Canvas(opaque: true, rendersAsynchronously: false) { context, size in
             draw(&context, size: size)
         }
-        .drawingGroup()
     }
 
     private func draw(_ context: inout GraphicsContext, size: CGSize) {

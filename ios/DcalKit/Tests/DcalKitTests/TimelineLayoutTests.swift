@@ -138,3 +138,67 @@ private func layout(centre: Date, span: TimeInterval, now: Date) -> TimelineLayo
     #expect(frame.grid.count < 400)
     #expect(frame.groundStops.count <= 140)
 }
+
+// MARK: - Nothing may move sideways or blink while you scroll
+
+private func frames(span: TimeInterval, centre: Date, now: Date, steps: Int = 40) -> [TimelineLayout] {
+    let lifeline = SampleLifeline.make(now: now, calendar: Fixture.calendar)
+    let pps = TimeScale.pointsPerSecond(height: size.height, span: span)
+    var origin = centre
+    var out: [TimelineLayout] = []
+    for _ in 0..<steps {
+        out.append(TimelineLayoutBuilder.build(
+            scale: TimeScale(centre: origin, pointsPerSecond: pps, height: size.height),
+            size: size, chromeTop: chromeTop, chromeBottom: chromeBottom,
+            lifeline: lifeline, tickCalendar: Fixture.tickCalendar, now: now
+        ))
+        // Eight points of scroll per step.
+        origin = origin.addingTimeInterval(8 / pps)
+    }
+    return out
+}
+
+@Test func aLabelDoesNotBlinkOutWhileYouScrollPastIt() {
+    let now = Fixture.date(2026, 9, 10, 12)
+    // The "Weeks" step, where the routine and the notable things compete.
+    let sequence = frames(span: 42 * 86400, centre: now, now: now)
+
+    var wasShowing: Set<Event.ID> = []
+    for frame in sequence {
+        let showing = Set(frame.landmarks.map(\.event.id))
+        for id in wasShowing where !showing.contains(id) {
+            Issue.record("a label disappeared mid-screen while scrolling")
+        }
+        // Only hold the ones still well inside the screen to the next frame;
+        // leaving at the edge is not a flicker.
+        wasShowing = Set(
+            frame.landmarks
+                .filter { $0.y > chromeTop + 100 && $0.y < size.height - chromeBottom - 100 }
+                .map(\.event.id)
+        )
+    }
+    #expect(!wasShowing.isEmpty)
+}
+
+@Test func aBlockKeepsItsLaneWhileYouScrollPastIt() {
+    let now = Fixture.date(2026, 9, 10, 12)
+    let sequence = frames(span: 15 * 3600, centre: now, now: now)
+
+    var placed: [Event.ID: (x: CGFloat, width: CGFloat)] = [:]
+    var checked = 0
+    for frame in sequence {
+        #expect(!frame.blocks.isEmpty)
+        for block in frame.blocks {
+            guard block.frame.midY > 120, block.frame.midY < size.height - 120 else { continue }
+            let now = (x: block.frame.minX, width: block.frame.width)
+            if let before = placed[block.event.id] {
+                #expect(abs(before.x - now.x) < 0.01)
+                #expect(abs(before.width - now.width) < 0.01)
+                checked += 1
+            } else {
+                placed[block.event.id] = now
+            }
+        }
+    }
+    #expect(checked > 100)
+}

@@ -95,17 +95,64 @@ import Testing
         Layout.LabelCandidate(index: 2, y: 300, weight: .notable),
     ]
     let placed = Layout.placeLabels(
-        candidates, gap: { $0 == .milestone ? 27 : 23 }, centreY: 400
+        candidates, gap: { $0 == .milestone ? 27 : 23 }
     ).sorted()
     // The milestone at 110 pushes the everyday label at 100 out entirely,
     // rather than nudging it to a moment it does not belong to.
     #expect(placed == [1, 2])
 }
 
-@Test func amongEqualsTheOnesNearestTheMiddleWin() {
+@Test func amongEqualsTheEarlierOneWins() {
     let candidates = (0..<6).map {
         Layout.LabelCandidate(index: $0, y: CGFloat(100 + $0 * 10), weight: .notable)
     }
-    let placed = Layout.placeLabels(candidates, gap: { _ in 25 }, centreY: 150)
-    #expect(placed.first == 5)  // y = 150, dead centre
+    // Ten points apart with a gap of 25: the first takes the slot, the next
+    // two are too close, the fourth clears it. Nothing here depends on where
+    // the viewport happens to be.
+    #expect(Layout.placeLabels(candidates, gap: { _ in 25 }) == [0, 3])
+}
+
+@Test func theSameCandidatesAlwaysGiveTheSameAnswer() {
+    // Equal weights must not shuffle among themselves - Swift's sort is not
+    // stable, so the comparator has to break the tie itself.
+    let candidates = (0..<40).map {
+        Layout.LabelCandidate(index: $0, y: CGFloat(20 + $0 * 9), weight: .notable)
+    }
+    let first = Layout.placeLabels(candidates, gap: { _ in 24 })
+    for _ in 0..<20 {
+        #expect(Layout.placeLabels(candidates, gap: { _ in 24 }) == first)
+    }
+}
+
+@Test func panningDoesNotChangeWhichLabelsWin() {
+    // The exact case the old tie-break got wrong: two equals close enough to
+    // compete for one slot. Ordering by distance from the middle of the
+    // screen made the winner flip as the view scrolled between them, so one
+    // label blinked out and its neighbour appeared.
+    let base: [(CGFloat, Weight)] = [(390, .notable), (410, .notable), (470, .milestone)]
+    func place(shiftedBy shift: CGFloat) -> [Int] {
+        Layout.placeLabels(
+            base.enumerated().map {
+                Layout.LabelCandidate(index: $0.offset, y: $0.element.0 + shift, weight: $0.element.1)
+            },
+            gap: { $0 == .milestone ? 27 : 23 }
+        )
+    }
+    let atRest = place(shiftedBy: 0)
+    #expect(!atRest.isEmpty)
+    for shift in stride(from: CGFloat(-300), through: 300, by: 7) {
+        #expect(place(shiftedBy: shift) == atRest)
+    }
+}
+
+@Test func aClusterCutOffAtTheScreenEdgeWouldRepackTheRest() {
+    // Why TimelineLayoutBuilder packs lanes against more than what is on
+    // screen. One long event overlapping two short ones puts all three in a
+    // two-lane cluster; drop the long one because it scrolled out of the set
+    // and the short ones widen to the full column - a visible sideways jump
+    // for two events that did not move.
+    let withLongEvent = Layout.packLanes([0...100, 10...20, 30...40])
+    let without = Layout.packLanes([10...20, 30...40])
+    #expect(withLongEvent[1].lanes == 2)
+    #expect(without[0].lanes == 1)
 }

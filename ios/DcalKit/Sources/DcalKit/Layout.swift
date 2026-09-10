@@ -70,21 +70,30 @@ public enum Layout {
         }
     }
 
-    /// Greedy placement: heaviest first, and among equals the ones nearest
-    /// the middle of the screen, since that is what the reader is looking at.
+    /// Greedy placement: heaviest first, and among equals whichever comes
+    /// first in the list, which the caller keeps in chronological order.
     /// Anything that would collide is dropped rather than nudged - a label
     /// that has moved is a label pointing at the wrong moment.
+    ///
+    /// The tie-break must not depend on the viewport. It used to prefer
+    /// whatever was nearest the middle of the screen, which sounds right and
+    /// is not: two neighbours competing for one slot then swap winners as you
+    /// scroll past them, and a label blinks out while another appears beside
+    /// it. Ordering by time instead makes the outcome for any pair fixed, so
+    /// panning at a given zoom cannot change what is on screen.
+    ///
+    /// Sorting has to be made stable by hand - Swift's sort is not - or equal
+    /// weights would shuffle among themselves for the same reason.
     public static func placeLabels(
         _ candidates: [LabelCandidate],
         gap: (Weight) -> CGFloat,
-        centreY: CGFloat,
-        limit: Int = 70
+        limit: Int = 120
     ) -> [Int] {
-        let ordered = candidates.sorted { left, right in
-            left.weight == right.weight
-                ? abs(left.y - centreY) < abs(right.y - centreY)
-                : left.weight > right.weight
-        }
+        let ordered = candidates.enumerated().sorted { left, right in
+            left.element.weight == right.element.weight
+                ? left.offset < right.offset
+                : left.element.weight > right.element.weight
+        }.map(\.element)
         var taken: [CGFloat] = []
         var placed: [Int] = []
         for candidate in ordered {

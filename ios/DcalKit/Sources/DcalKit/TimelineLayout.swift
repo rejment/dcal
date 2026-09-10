@@ -154,7 +154,12 @@ public enum TimelineLayoutBuilder {
                 * (isMajor ? 2.1 : 1)
             guard opacity >= 0.012 else { continue }
             for date in tickCalendar.ticks(level, from: top, to: bottom) {
-                grid.append(.init(y: scale.y(for: date).rounded() + 0.5, opacity: opacity))
+                // Not snapped to the pixel grid. A crisp hairline is worth
+                // less than moving in step with the ruler label beside it:
+                // rounded, the line and its own label drift apart and back
+                // together by up to half a point as you scroll, and the text
+                // reads as wobbling against the line it belongs to.
+                grid.append(.init(y: scale.y(for: date), opacity: opacity))
             }
         }
 
@@ -190,6 +195,17 @@ public enum TimelineLayoutBuilder {
         let visible = lifeline.events(overlapping:
             top.addingTimeInterval(-margin)...bottom.addingTimeInterval(margin))
 
+        // Lanes and labels are decided against a good deal more than what is
+        // on screen. Both are chain decisions - a block's lane depends on
+        // everything it overlaps, a label's slot on its neighbours - so if
+        // the input set changes as things scroll past the edge, the answer
+        // changes for everything still in view and the whole column twitches.
+        // A screen and a half either way covers any cluster that could reach
+        // across the visible area.
+        let reach = Double(size.height * 1.5) / scale.pointsPerSecond
+        let context = lifeline.events(overlapping:
+            top.addingTimeInterval(-reach)...bottom.addingTimeInterval(reach))
+
         // Every single thing leaves a mark in the ribbon, at every zoom.
         // This is what tells you a stretch of life was busy when there is no
         // room left to name any of it.
@@ -222,14 +238,14 @@ public enum TimelineLayoutBuilder {
         var blocks: [TimelineLayout.Block] = []
         if scheduleOpacity > 0.005 {
             blocks = buildBlocks(
-                visible: visible, scale: scale, metrics: metrics, tickCalendar: tickCalendar
+                visible: context, scale: scale, metrics: metrics, tickCalendar: tickCalendar
             )
         }
 
         var landmarks: [TimelineLayout.Landmark] = []
         if scheduleOpacity < 0.995 {
             landmarks = buildLandmarks(
-                visible: visible, scale: scale, metrics: metrics, lifeline: lifeline,
+                visible: context, scale: scale, metrics: metrics, lifeline: lifeline,
                 calendar: calendar, rulerTop: rulerTop, rulerBottom: rulerBottom
             )
         }
@@ -291,19 +307,18 @@ public enum TimelineLayoutBuilder {
         rulerBottom: CGFloat
     ) -> [TimelineLayout.Landmark] {
         let floor = Layout.minimumWeight(forSpan: scale.span)
+        // Candidates run past the visible band so that something scrolling in
+        // has already been competing for its slot before it appears.
+        let approach: CGFloat = 150
         var candidates: [Layout.LabelCandidate] = []
         for (index, event) in visible.enumerated() {
             guard event.weight >= floor else { continue }
             let y = scale.y(for: event.anchor)
-            guard y >= rulerTop, y <= rulerBottom else { continue }
+            guard y >= rulerTop - approach, y <= rulerBottom + approach else { continue }
             candidates.append(.init(index: index, y: y, weight: event.weight))
         }
 
-        let chosen = Layout.placeLabels(
-            candidates,
-            gap: { $0 == .milestone ? 27 : 23 },
-            centreY: metrics.size.height / 2
-        )
+        let chosen = Layout.placeLabels(candidates, gap: { $0 == .milestone ? 27 : 23 })
 
         // Age only once a year is small enough that "1992" stops being an
         // answer to how long ago that was.
@@ -314,6 +329,7 @@ public enum TimelineLayoutBuilder {
         for index in chosen.sorted() {
             let event = visible[index]
             let y = scale.y(for: event.anchor)
+            guard y >= rulerTop, y <= rulerBottom else { continue }
             let y0 = scale.y(for: event.start)
             let y1 = scale.y(for: event.end)
             let bracket = (y1 - y0) > 7 ? y0...y1 : nil

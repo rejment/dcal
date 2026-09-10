@@ -69,6 +69,19 @@ Prepared in advance: bundle id `com.rejment.dcal`, version 1.0, the 1024 icon,
 and the export compliance question answered in `Info.plist` (standard TLS
 only), so uploads do not stop to ask.
 
+The Release configuration signs with `Apple Distribution` rather than letting
+automatic signing pick a development certificate and swap it at export. On a
+CI runner — a clean machine with an empty keychain — that swap minted a new
+Apple Development certificate through the API on *every single build*, and
+fifteen of those is Apple's ceiling for an account, after which it refuses to
+issue any more and the archive fails. Cloud-managed distribution certificates
+are not per-machine, so nothing accumulates. Debug is untouched, which is what
+a local ⌘R onto a cabled phone needs.
+
+If it ever does hit the ceiling, the certificates named "Apple Development:
+Created via API" are disposable — revoke them at developer.apple.com and the
+next build mints what it needs.
+
 ## What is not verified here
 
 There is no Xcode on the machine this was written on, so the package, its

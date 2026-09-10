@@ -230,6 +230,44 @@ public final class TimelineModel {
         persist()
     }
 
+    // MARK: - Import and export
+
+    var document: LifelineDocument { LifelineDocument(calendar: calendar) }
+
+    /// Writes the lifeline to a file in the temporary directory and hands
+    /// back its URL, ready for the share sheet.
+    func writeExport() throws -> URL {
+        let parts = calendar.dateComponents([.year, .month, .day], from: Date())
+        let stamp = String(
+            format: "%04d-%02d-%02d",
+            parts.year ?? 0, parts.month ?? 1, parts.day ?? 1
+        )
+        let url = URL.temporaryDirectory.appending(path: "dcal-lifeline-\(stamp).json")
+        try document.text(for: lifeline).write(to: url, atomically: true, encoding: .utf8)
+        return url
+    }
+
+    func read(fileAt url: URL) throws -> Lifeline {
+        // A file coming from Files or iCloud arrives security-scoped.
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let text = try String(contentsOf: url, encoding: .utf8)
+        return try document.lifeline(from: text)
+    }
+
+    func replace(with incoming: Lifeline) {
+        lifeline = incoming
+        persist()
+        go(to: .life)
+    }
+
+    /// Same id means the same event, so re-importing an edited export updates
+    /// rather than duplicates.
+    func add(_ incoming: Lifeline) {
+        for event in incoming.events { lifeline.upsert(event) }
+        persist()
+    }
+
     func resetToSample() {
         lifeline = SampleLifeline.make(calendar: calendar)
         persist()

@@ -158,20 +158,10 @@ public struct DcalRootView: View {
                 )
 
             case .menu:
-                MenuSheet(
-                    jumpTo: model.scale.centre,
-                    onJump: { date in
-                        model.glide(to: date, pointsPerSecond: exp(model.logScale), duration: 0.6)
-                        sheet = nil
-                        nudge()
-                    },
-                    onReset: {
-                        model.resetToSample()
-                        sheet = nil
-                        nudge()
-                    },
-                    onClose: { sheet = nil }
-                )
+                MenuSheet(model: model) {
+                    sheet = nil
+                    nudge()
+                }
             }
         }
     }

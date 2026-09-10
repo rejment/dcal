@@ -12,7 +12,7 @@ public enum Category: String, Codable, CaseIterable, Sendable {
 
     public var label: String {
         switch self {
-        case .life: "Milestone"
+        case .life: "Life"
         case .work: "Work"
         case .health: "Health & body"
         case .people: "People"

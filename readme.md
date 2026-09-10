@@ -57,8 +57,52 @@ Its events live in `localStorage` under `dcal.lifeline.v1`. The app and the
 prototype do not share data — the prototype is where the design was worked
 out, and it is kept because it is still the fastest way to try a change.
 
+## Backups, and editing a life on a computer
+
+**⋯ → Backup → Save a copy** writes a JSON file and hands it to the share
+sheet — Files, iCloud, AirDrop, mail. **Open a file** reads one back, asking
+whether to replace everything or add to it.
+
+The file is meant to be typed in, not just parsed:
+
+```json
+{ "dcal": 1,
+  "exported": "2026-09-10 22:31",
+  "events": [
+    { "title": "Born", "start": "1985-06-14 04:12",
+      "weight": "milestone", "category": "life",
+      "note": "A Friday morning, six weeks early." },
+    { "title": "Japan", "start": "2016-04-02", "lasts": "16 days",
+      "weight": "notable", "category": "travel" }
+  ] }
+```
+
+Dates are local time, lengths say what they mean, and weights are the words
+the app uses. Only `title` and `start` are required — a whole life can go in
+as two columns and be filled in later. One event per line, so two backups
+diff cleanly.
+
+Reading is deliberately more forgiving than writing:
+
+| written as | also accepted |
+| --- | --- |
+| `"start": "1985-06-14 04:12"` | `1985-06-14`, `1985-06`, `1985`, ISO 8601 with a timezone |
+| `"lasts": "16 days"` | `16d`, `90 min`, `2h`, `1 week`, `"duration": 1382400` (seconds) |
+| `"weight": "milestone"` | `0`–`3` |
+| `"id": "…"` | omit it, and one is generated |
+
+Anything the app has ever written imports, including its own store file, so an
+old backup still works. Re-importing an edited export **updates** events rather
+than duplicating them, because the ids come back with it — drop the `id` line
+to turn an edit into a new event.
+
+When something is wrong the message names the event and says what to type:
+*"School" (event 2) has a date I can't read: "14 juni 1992". Write it as
+1985-06-14, or 1985-06-14 04:12.*
+
 ## Not done yet
 
 Reading your real calendar (EventKit) is the obvious next step and the thing
 that would make this useful rather than only demonstrable. Also missing:
-repeating events, multi-day layout at day scale, iPad, and any sync at all.
+repeating events, multi-day layout at day scale, iPad, CSV for spreadsheet
+editing, and any sync at all.

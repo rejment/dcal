@@ -3,6 +3,7 @@
 
 import DcalKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 private let durationChoices: [(TimeInterval, String)] = [
     (0, "A moment"),
@@ -199,23 +200,65 @@ struct EventEditSheet: View {
 }
 
 struct MenuSheet: View {
-    @State var jumpTo: Date
-    let onJump: (Date) -> Void
-    let onReset: () -> Void
+    let model: TimelineModel
     let onClose: () -> Void
+
+    @State private var jumpTo: Date
+    @State private var exportURL: URL?
+    @State private var picking = false
+    /// Parsed and waiting for you to say what to do with it. Nothing is
+    /// touched until you choose.
+    @State private var incoming: Lifeline?
+    @State private var problem: String?
+
+    init(model: TimelineModel, onClose: @escaping () -> Void) {
+        self.model = model
+        self.onClose = onClose
+        _jumpTo = State(initialValue: model.scale.centre)
+    }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
                     DatePicker("Date", selection: $jumpTo, displayedComponents: .date)
-                    Button("Go to this date") { onJump(jumpTo) }
+                    Button("Go to this date") {
+                        model.glide(to: jumpTo, pointsPerSecond: exp(model.logScale), duration: 0.6)
+                        onClose()
+                    }
                 } header: {
                     Text("Jump")
                 }
 
                 Section {
-                    Button("Reset to the sample lifeline", role: .destructive, action: onReset)
+                    if let exportURL {
+                        ShareLink(item: exportURL) {
+                            Label("Save a copy", systemImage: "square.and.arrow.up")
+                        }
+                    } else {
+                        Label("Preparing…", systemImage: "square.and.arrow.up")
+                            .foregroundStyle(.secondary)
+                    }
+                    Button {
+                        picking = true
+                    } label: {
+                        Label("Open a file", systemImage: "square.and.arrow.down")
+                    }
+                } header: {
+                    Text("Backup")
+                } footer: {
+                    Text("""
+                    A plain JSON file, one event per line, dates in your own \
+                    time. Edit it on a computer and open it again here, or keep \
+                    it somewhere safe as a backup.
+                    """)
+                }
+
+                Section {
+                    Button("Reset to the sample lifeline", role: .destructive) {
+                        model.resetToSample()
+                        onClose()
+                    }
                 } footer: {
                     Text("Replaces everything with the made-up life the app ships with.")
                 }
@@ -238,6 +281,43 @@ struct MenuSheet: View {
                     Button("Done", action: onClose)
                 }
             }
+        }
+        .task {
+            exportURL = try? model.writeExport()
+        }
+        .fileImporter(isPresented: $picking, allowedContentTypes: [.json, .plainText]) { result in
+            switch result {
+            case .success(let url):
+                do { incoming = try model.read(fileAt: url) }
+                catch { problem = error.localizedDescription }
+            case .failure(let error):
+                problem = error.localizedDescription
+            }
+        }
+        .confirmationDialog(
+            incoming.map { "\($0.events.count) events in that file" } ?? "",
+            isPresented: Binding(get: { incoming != nil }, set: { if !$0 { incoming = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Replace all \(model.lifeline.events.count)", role: .destructive) {
+                if let incoming { model.replace(with: incoming) }
+                incoming = nil
+                onClose()
+            }
+            Button("Add to what's here") {
+                if let incoming { model.add(incoming) }
+                incoming = nil
+                onClose()
+            }
+            Button("Cancel", role: .cancel) { incoming = nil }
+        }
+        .alert(
+            "Couldn't read that file",
+            isPresented: Binding(get: { problem != nil }, set: { if !$0 { problem = nil } })
+        ) {
+            Button("OK") { problem = nil }
+        } message: {
+            Text(problem ?? "")
         }
     }
 }

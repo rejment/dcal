@@ -72,7 +72,14 @@ public struct DcalRootView: View {
                 }
             }
             .onAppear { measure(size: size, insets: insets) }
-            .onChange(of: size) { measure(size: size, insets: insets) }
+            .onChange(of: size) { _, updated in
+                model.size = updated
+                model.height = updated.height
+            }
+            .onChange(of: insets) { _, updated in
+                model.chromeTop = updated.top + 96
+                model.chromeBottom = updated.bottom + 112
+            }
         }
         .background(Theme.ground)
         .ignoresSafeArea()

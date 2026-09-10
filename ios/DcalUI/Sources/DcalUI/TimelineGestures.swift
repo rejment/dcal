@@ -26,7 +26,7 @@ struct TimelineGestures: UIViewRepresentable {
     }
 
     func makeUIView(context: Context) -> UIView {
-        let view = TouchView()
+        let view = UIView()
         view.backgroundColor = .clear
         let coordinator = context.coordinator
 
@@ -60,13 +60,6 @@ struct TimelineGestures: UIViewRepresentable {
 
     static func dismantleUIView(_ view: UIView, coordinator: Coordinator) {
         coordinator.stopDisplayLink()
-    }
-
-    /// A bare UIView would let a touch fall through to whatever is behind it
-    /// on the first tap after a fling; owning the touch keeps the timeline in
-    /// charge of its own gestures.
-    private final class TouchView: UIView {
-        override func point(inside point: CGPoint, with event: UIEvent?) -> Bool { true }
     }
 
     @MainActor

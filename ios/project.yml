@@ -1,0 +1,64 @@
+# XcodeGen manifest for the iOS app target.
+#
+#     brew install xcodegen
+#     cd ios && xcodegen generate
+#     open Dcal.xcodeproj
+#
+# The app is a shell: everything real lives in the local Swift package
+# (DcalKit for the model and layout maths, DcalUI for the interface), which
+# builds and tests on its own with `./test.sh`. Regenerate the project freely;
+# nothing in it is hand-edited.
+
+name: Dcal
+options:
+  bundleIdPrefix: com.rejment
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+packages:
+  DcalPackage:
+    path: .
+
+schemes:
+  Dcal:
+    build:
+      targets:
+        Dcal: all
+    run:
+      config: Debug
+    archive:
+      config: Release
+
+targets:
+  Dcal:
+    type: application
+    platform: iOS
+    sources:
+      - Dcal
+    dependencies:
+      - package: DcalPackage
+        product: DcalUI
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.rejment.dcal
+        # Automatic signing: Xcode picks the profile once a team is chosen
+        # under Signing & Capabilities (or set DEVELOPMENT_TEAM here). CI
+        # passes the team in and lets xcodebuild fetch the certificate.
+        CODE_SIGN_STYLE: Automatic
+        # The INFOPLIST_KEY_* values below only exist inside a generated
+        # Info.plist - without this the archive fails at the signing step.
+        GENERATE_INFOPLIST_FILE: true
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        INFOPLIST_KEY_CFBundleDisplayName: DCAL
+        INFOPLIST_KEY_UILaunchScreen_Generation: true
+        # A vertical timeline has nothing to gain from landscape.
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIUserInterfaceStyle: Dark
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Only Apple's standard TLS - answers the export compliance question
+        # once, instead of at every single upload.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: false
+        SWIFT_VERSION: "5.10"
+        TARGETED_DEVICE_FAMILY: "1"

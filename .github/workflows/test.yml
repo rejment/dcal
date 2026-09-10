@@ -1,0 +1,24 @@
+# Every push: build the package and run the DcalKit suite. The UI target is
+# built too, so a SwiftUI change that does not compile fails here rather than
+# at archive time.
+
+name: test
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift tests
+        working-directory: ios
+        run: swift test
+
+      - name: The app icon is generated, so it must still match its source
+        run: |
+          ./make_icon.py
+          git diff --exit-code ios/Dcal/Assets.xcassets/AppIcon.appiconset/icon-1024.png

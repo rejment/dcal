@@ -1,0 +1,95 @@
+# Build, sign and upload the iOS app to TestFlight from a GitHub macOS runner -
+# no local Xcode needed.
+#
+# Signing is Xcode "cloud signing": the App Store Connect API key lets
+# xcodebuild create and fetch the distribution certificate and profile by
+# itself (-allowProvisioningUpdates), so no .p12 ever touches the repo.
+#
+# Repository secrets required (Settings -> Secrets and variables -> Actions):
+#   ASC_KEY_ID      App Store Connect API key ID          (e.g. 2X9R4HXF34)
+#   ASC_ISSUER_ID   Issuer ID from the same page          (a UUID)
+#   ASC_KEY_P8      Full contents of the AuthKey_*.p8 file
+#   APPLE_TEAM_ID   Team ID from developer.apple.com/account (10 characters)
+#
+# One-time manual steps, both in the browser:
+#   1. appstoreconnect.apple.com -> Users and Access -> Integrations
+#      -> App Store Connect API -> Team key, role "App Manager". Download the
+#      .p8 (only offered once) and note Key ID + Issuer ID.
+#   2. appstoreconnect.apple.com -> Apps -> "+" -> New App, bundle id
+#      com.rejment.dcal - uploads land nowhere without the app record.
+#
+# Run from the Actions tab (workflow_dispatch); every run uploads a build
+# numbered by the run counter, so numbers never collide.
+
+name: testflight
+
+on:
+  workflow_dispatch:
+
+jobs:
+  upload:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate Xcode project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Write App Store Connect API key
+        env:
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_KEY_P8" > ~/private_keys/AuthKey_${ASC_KEY_ID}.p8
+
+      - name: Archive
+        working-directory: ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcodebuild archive \
+            -project Dcal.xcodeproj \
+            -scheme Dcal \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath build/Dcal.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }}
+
+      - name: Upload to TestFlight
+        working-directory: ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cat > ExportOptions.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+            "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>destination</key><string>upload</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+          </dict>
+          </plist>
+          PLIST
+          xcodebuild -exportArchive \
+            -archivePath build/Dcal.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_${ASC_KEY_ID}.p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID"
